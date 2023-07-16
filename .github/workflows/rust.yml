@@ -1,5 +1,5 @@
 ---
-name: Rust
+name: rust
 
 on: [push, pull_request]
 
