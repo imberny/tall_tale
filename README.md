@@ -1,8 +1,9 @@
-# tall-tale
+# Tall Tale
 
 ![Build Status](https://github.com/imberny/tall_tale/workflows/rust/badge.svg)
 ![Security audit](https://github.com/imberny/tall_tale/workflows/audit/badge.svg)
 
+A dynamic storytelling library.
 
 ## Installation
 
