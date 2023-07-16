@@ -9,7 +9,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      PROJECT_NAME: tall_tale
+      PROJECT_NAME: tallitale
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
