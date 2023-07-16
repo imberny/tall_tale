@@ -1,4 +1,4 @@
-use std::{collections::HashSet, hash::Hash};
+use std::hash::Hash;
 
 use tall_tale::{Character, Constraint, Rule, Tale, TaleWorld};
 

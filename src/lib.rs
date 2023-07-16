@@ -1,95 +1,89 @@
 use std::{
     collections::{HashMap, HashSet},
     hash::Hash,
-    marker::PhantomData,
 };
 
-pub struct Beat<T> {
+pub struct Beat<Attribute> {
     pub name: String,
-    constraints: Vec<Constraint<T>>,
+    constraints: Vec<Constraint<Attribute>>,
 }
 
-impl<T: Hash + Eq> Beat<T> {
-    pub fn is_satisfied(&self, world: &TaleWorld<T>) -> bool {
+impl<Attribute: Hash + Eq> Beat<Attribute> {
+    pub fn is_satisfied(&self, world: &TaleWorld<Attribute>) -> bool {
         self.constraints
             .iter()
             .all(|constraint| constraint.is_satisfied(world))
     }
 }
 
-pub struct Tale<K, T> {
-    beats: HashMap<K, Beat<T>>,
+pub struct Tale<K, Attribute> {
+    beats: HashMap<K, Beat<Attribute>>,
 }
 
-impl<K: Hash + Eq, T: Hash + Eq> Tale<K, T> {
+impl<K: Hash + Eq, Attribute: Hash + Eq> Tale<K, Attribute> {
     pub fn new() -> Self {
         Self {
             beats: HashMap::default(),
         }
     }
 
-    pub fn with(mut self, key: K, constraints: Vec<Constraint<T>>, name: String) -> Self {
+    pub fn with(mut self, key: K, constraints: Vec<Constraint<Attribute>>, name: String) -> Self {
         self.beats.insert(key, Beat { name, constraints });
         self
     }
 
-    pub fn what_next(&self, world: &TaleWorld<T>) -> Option<&Beat<T>> {
+    pub fn what_next(&self, world: &TaleWorld<Attribute>) -> Option<&Beat<Attribute>> {
         self.beats.values().find(|beat| beat.is_satisfied(world))
     }
 }
 
-impl<K: Hash + Eq, T: Hash + Eq> Default for Tale<K, T> {
+impl<K: Hash + Eq, Attribute: Hash + Eq> Default for Tale<K, Attribute> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-pub struct Character<T> {
-    traits: HashSet<T>,
+pub struct Character<Attribute> {
+    attributes: HashSet<Attribute>,
 }
 
-impl<T: Hash + Eq> Character<T> {
+impl<Attribute: Hash + Eq> Character<Attribute> {
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn with(mut self, new_trait: T) -> Self {
-        self.traits.insert(new_trait);
+    pub fn with(mut self, new_trait: Attribute) -> Self {
+        self.attributes.insert(new_trait);
         self
     }
 }
 
-impl<T: Hash + Eq> Default for Character<T> {
+impl<Attribute: Hash + Eq> Default for Character<Attribute> {
     fn default() -> Self {
         Self {
-            traits: HashSet::default(),
+            attributes: HashSet::default(),
         }
     }
 }
 
-pub struct TaleWorld<T> {
-    phantom_marker: PhantomData<T>,
-    characters: Vec<Character<T>>,
+pub struct TaleWorld<Attribute> {
+    characters: Vec<Character<Attribute>>,
 }
 
-impl<T: Hash + Eq> TaleWorld<T> {
+impl<Attribute: Hash + Eq> TaleWorld<Attribute> {
     pub fn new() -> Self {
-        Self {
-            phantom_marker: PhantomData::default(),
-            characters: Vec::default(),
-        }
+        Self::default()
     }
 
-    pub fn with(mut self, character: Character<T>) -> Self {
+    pub fn with(mut self, character: Character<Attribute>) -> Self {
         self.characters.push(character);
         self
     }
 }
 
-impl<T: Hash + Eq> Default for TaleWorld<T> {
+impl<Attribute: Hash + Eq> Default for TaleWorld<Attribute> {
     fn default() -> Self {
         Self {
-            phantom_marker: PhantomData::default(),
             characters: Vec::default(),
         }
     }
@@ -100,21 +94,21 @@ pub enum Rule {
     HasNot,
 }
 
-pub struct Constraint<T> {
+pub struct Constraint<Attribute> {
     rule: Rule,
-    attribute: T,
+    attribute: Attribute,
 }
 
-impl<T: Hash + Eq> Constraint<T> {
-    pub fn new(rule: Rule, attribute: T) -> Self {
+impl<Attribute: Hash + Eq> Constraint<Attribute> {
+    pub fn new(rule: Rule, attribute: Attribute) -> Self {
         Self { rule, attribute }
     }
 
-    pub fn is_satisfied(&self, world: &TaleWorld<T>) -> bool {
+    pub fn is_satisfied(&self, world: &TaleWorld<Attribute>) -> bool {
         let has_attribute = world
             .characters
             .iter()
-            .any(|character| character.traits.contains(&self.attribute));
+            .any(|character| character.attributes.contains(&self.attribute));
 
         match self.rule {
             Rule::Has => has_attribute,
