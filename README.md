@@ -1,6 +1,6 @@
 # tall-tale
 
-[![Build Status](https://github.com/imberny/tall-tale/workflows/Rust/badge.svg)]
+![Build Status](https://github.com/imberny/tall_tale/workflows/Rust/badge.svg)
 
 ## Installation
 
