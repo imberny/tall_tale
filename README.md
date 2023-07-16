@@ -1,8 +1,6 @@
 # tall-tale
 
-[![Crates.io](https://img.shields.io/crates/v/tall-tale.svg)](https://crates.io/crates/tall-tale)
-[![Docs.rs](https://docs.rs/tall-tale/badge.svg)](https://docs.rs/tall-tale)
-[![CI](https://github.com/imberny/tall-tale/workflows/CI/badge.svg)](https://github.com/imberny/tall-tale/actions)
+[![Build Status](https://github.com/imberny/tall-tale/workflows/rust/badge.svg)]
 
 ## Installation
 
