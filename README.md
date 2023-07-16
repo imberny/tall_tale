@@ -1,7 +1,7 @@
 # tall-tale
 
-[![Build Status](https://github.com/imberny/tall_tale/workflows/rust/badge.svg)]
-[![Security audit](https://github.com/imberny/tall_tale/workflows/audit/badge.svg)]
+![Build Status](https://github.com/imberny/tall_tale/workflows/rust/badge.svg)
+![Security audit](https://github.com/imberny/tall_tale/workflows/audit/badge.svg)
 
 
 ## Installation
