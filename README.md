@@ -1,7 +1,7 @@
-# Tall Tale
+# Raconteur
 
-![Build Status](https://github.com/imberny/tall_tale/workflows/rust/badge.svg)
-![Security audit](https://github.com/imberny/tall_tale/workflows/audit/badge.svg)
+![Build Status](https://github.com/imberny/raconteur/workflows/rust/badge.svg)
+![Security audit](https://github.com/imberny/raconteur/workflows/audit/badge.svg)
 
 A dynamic storytelling library.
 
@@ -11,7 +11,7 @@ A dynamic storytelling library.
 
 * Install the rust toolchain in order to have cargo installed by following
   [this](https://www.rust-lang.org/tools/install) guide.
-* run `cargo install tall_tale`
+* run `cargo install raconteur`
 
 ## License
 

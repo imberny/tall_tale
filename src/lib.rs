@@ -149,4 +149,12 @@ mod tests {
 
         assert_eq!(beat.unwrap().name, "MeetingJoe".to_string())
     }
+
+    // can I have a character struct that holds a set of user defined attributes, each attribute being a struct deriving CharacterAttribute?
+    // with macros, maybe
+
+    // trait CharacterAttribute {}
+
+    // #[derive(CharacterAttribute)]
+    // struct Age(usize);
 }

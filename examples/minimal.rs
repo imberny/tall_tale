@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use tall_tale::{Character, Constraint, Rule, Tale, TaleWorld};
+use raconteur::{Character, Constraint, Rule, Tale, TaleWorld};
 
 fn main() {
     let tale = Tale::new().with(
