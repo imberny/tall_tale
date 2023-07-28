@@ -1,13 +1,13 @@
 use itertools::Itertools;
 use std::{collections::HashMap, fmt::Display, ops::Range, rc::Rc};
 
-const ID: &str = "id";
+pub const ID: &str = "id";
 
 pub type Alias = String;
-type PropertyName = String;
-type PropertyMap = HashMap<PropertyName, Property>;
+pub type PropertyName = String;
+pub type PropertyMap = HashMap<PropertyName, Property>;
 // key is a pair of ids, value is property from POV of 1st entity
-type RelationMap = HashMap<(Property, Property), PropertyMap>;
+pub type RelationMap = HashMap<(Property, Property), PropertyMap>;
 
 pub struct Query {
     pub entities: Vec<PropertyMap>, // characters, items, locations ... matched against alias_constraints
@@ -31,6 +31,54 @@ pub struct StoryBeat {
 impl StoryBeat {
     pub fn is_leaf(&self) -> bool {
         self.children.is_empty()
+    }
+}
+
+pub struct StoryBeatBuilder(StoryBeat);
+
+impl StoryBeatBuilder {
+    pub fn new() -> Self {
+        Self(StoryBeat::default())
+    }
+
+    pub fn with_description(mut self, description: impl Into<String>) -> Self {
+        self.0.description = description.into();
+        self
+    }
+
+    pub fn with_alias(
+        mut self,
+        alias: impl Into<String>,
+        constraints: Vec<PropertyConstraint>,
+    ) -> Self {
+        self.0
+            .aliases
+            .push(ConstrainedAlias(alias.into(), constraints));
+        self
+    }
+
+    pub fn with_relation(
+        mut self,
+        me: impl Into<Alias>,
+        other: impl Into<Alias>,
+        constraint: PropertyConstraint,
+    ) -> Self {
+        self.0.relation_constraints.push(RelationConstraint {
+            me: me.into(),
+            other: other.into(),
+            constraint,
+        });
+        self
+    }
+
+    pub fn build(self) -> StoryBeat {
+        self.0
+    }
+}
+
+impl Default for StoryBeatBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -249,108 +297,4 @@ fn match_aliases(beat: &Rc<StoryBeat>, query: &Query) -> Vec<Vec<usize>> {
             })
         })
         .collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use std::{collections::HashMap, rc::Rc};
-
-    use crate::story_beat::{PropertyMap, PropertyName, Query, RelationMap};
-
-    use super::{
-        ConstrainedAlias, Property, PropertyConstraint, Raconteur, RelationConstraint, StoryBeat,
-        ID,
-    };
-
-    const GUY_ID: i64 = 0;
-    const GIRL_ID: i64 = 1;
-
-    fn query() -> Query {
-        let character1 = HashMap::<PropertyName, Property>::from([
-            (ID.to_string(), GUY_ID.into()),
-            ("name".to_string(), "Bertrand".to_string().into()),
-            ("age".to_string(), 30.into()),
-        ]);
-        let character2 = HashMap::<PropertyName, Property>::from([
-            (ID.to_string(), GIRL_ID.into()),
-            ("name".to_string(), "Juliette".to_string().into()),
-            ("age".to_string(), 32.into()),
-        ]);
-
-        let relationships = RelationMap::from([(
-            (GUY_ID.into(), GIRL_ID.into()),
-            PropertyMap::from([("opinion".to_string(), 2.into())]),
-        )]);
-
-        Query {
-            entities: vec![character1, character2],
-            entity_relations: relationships,
-            world_state: PropertyMap::default(),
-        }
-    }
-
-    fn guy_no_like_girl() -> Raconteur {
-        let guy_alias = "guy".to_string();
-        let girl_alias = "girl".to_string();
-        let mut raconteur = Raconteur::new();
-        raconteur.push(StoryBeat {
-            description: "low_opinion".to_string(),
-            aliases: vec![
-                ConstrainedAlias(guy_alias.clone(), vec![]),
-                ConstrainedAlias(girl_alias.clone(), vec![]),
-            ],
-            relation_constraints: vec![RelationConstraint {
-                me: guy_alias,
-                other: girl_alias,
-                constraint: PropertyConstraint::IsInRange(
-                    "opinion".to_string(),
-                    std::ops::Range { start: 0, end: 2 },
-                ),
-            }],
-            world_constraints: vec![],
-            directives: vec![],
-            children: vec![],
-        });
-        raconteur
-    }
-
-    fn guy_like_girl() -> Raconteur {
-        let guy_alias = "guy".to_string();
-        let girl_alias = "girl".to_string();
-        let mut raconteur = Raconteur::new();
-        raconteur.push(StoryBeat {
-            description: "guy_like_girl".to_string(),
-            aliases: vec![
-                ConstrainedAlias(guy_alias.clone(), vec![]),
-                ConstrainedAlias(girl_alias.clone(), vec![]),
-            ],
-            relation_constraints: vec![RelationConstraint {
-                me: guy_alias,
-                other: girl_alias,
-                constraint: PropertyConstraint::IsInRange(
-                    "opinion".to_string(),
-                    std::ops::Range { start: 1, end: 4 },
-                ),
-            }],
-            world_constraints: vec![],
-            directives: vec![],
-            children: vec![],
-        });
-        raconteur
-    }
-
-    #[test]
-    fn no_match() {
-        let raconteur = guy_no_like_girl();
-        let beat_candidates = raconteur.query(&query());
-        assert!(beat_candidates.is_empty());
-    }
-
-    #[test]
-    fn a_match() {
-        let raconteur: Raconteur = guy_like_girl();
-        let beat_candidates = raconteur.query(&query());
-        let beat = Rc::clone(&beat_candidates[0].0);
-        assert_eq!(beat.description, "guy_like_girl");
-    }
 }
