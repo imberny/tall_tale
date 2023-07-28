@@ -1,0 +1,19 @@
+@startuml
+
+struct Beat {
+	description
+	constraints
+	aliases
+	actions
+}
+
+
+
+Beat "1" o-- "*" Beat
+Beat "1" *-- "1" Description
+Beat "1" *-- "*" Constraint
+Beat "1" *-- "*" Alias
+Beat "1" *-- "*" Action
+
+
+@enduml

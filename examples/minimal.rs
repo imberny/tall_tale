@@ -1,22 +1,22 @@
 use std::hash::Hash;
 
-use raconteur::{Character, Constraint, Rule, Tale, TaleWorld};
+// use raconteur::{Character, Constraint, Rule, Tale, TaleWorld};
 
 fn main() {
-    let tale = Tale::new().with(
-        "MeetingJoe",
-        vec![Constraint::new(
-            Rule::Has,
-            Attribute::Name("Joe".to_string()),
-        )],
-        "MeetingJoe".to_string(),
-    );
+    //     let tale = Tale::new().with(
+    //         "MeetingJoe",
+    //         vec![Constraint::new(
+    //             Rule::Has,
+    //             Attribute::Name("Joe".to_string()),
+    //         )],
+    //         "MeetingJoe".to_string(),
+    //     );
 
-    let world = TaleWorld::new().with(Character::new().with(Attribute::Name("Joe".to_string())));
+    //     let world = TaleWorld::new().with(Character::new().with(Attribute::Name("Joe".to_string())));
 
-    let beat = tale.what_next(&world);
+    //     let beat = tale.what_next(&world);
 
-    assert_eq!(beat.unwrap().name, "MeetingJoe".to_string())
+    //     assert_eq!(beat.unwrap().name, "MeetingJoe".to_string())
 }
 
 // user defined

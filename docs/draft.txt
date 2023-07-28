@@ -1,0 +1,74 @@
+{
+			"constraints": [
+				"poor relationship between wanderer and rival",
+				"not daylight",
+			]
+			"aliases": [
+				{
+					"alias": "wanderer",
+					"constraints": [
+						"in countryside",
+						"not low money",
+					],
+				},
+				{
+					"alias": "rival",
+					"constraints": [],
+				}
+			],
+			"description": {
+				"present": "{rival} ambushes {wanderer}",
+				"past": "{rival} ambushed {wanderer} [at {location}]", // in brackets is optional info (short/long description) 
+			},
+			"actions": [
+				"rival approaches wanderer",
+				"rival says: Your money or your life!"
+			]
+		}
+		// followed by two child nodes:
+		{
+			"constraints": [], // same as parent
+			"aliases": [], // same as parent
+			"description": "{wanderer} gives his money to {rival}",
+			"actions": ["transfer money from {wanderer} to {rival}"],
+		}
+		{
+			"constraints": [], // same as parent
+			"aliases": [], // same as parent
+			"description": "{wanderer} refuses",
+			"actions": ["set relationship to hostile"],
+		}
+
+		// if gave money:
+		{
+			"constraints": [], // same as parent
+			"aliases": [], // same as parent
+			"description": "{rival} flees afer hurting player",
+			"actions": [
+				"{rival} says: Thanks, but I'll hurt your legs so you don't follow",
+				"{rival} attacks {wanderer} in the legs",
+				"{rival} flees"
+			],
+		}
+
+		// if player knocked out
+		{
+			"constraints": ["{wanderer} knocked out"],
+			"aliases": [], // same as parent
+			"description": "{rival} steals your money",
+			"actions": [
+				"{rival} says: Use your head next time.",
+				"transfer money from {wanderer} to {rival}",
+				"{rival} flees"
+			],
+		}
+		// if rival knocked out
+		{
+			"constraints": ["{rival} knocked out"],
+			"aliases": [], // same as parent
+			"description": "{rival} begs for his life",
+			"actions": [
+				"{rival} says: I'm sorry, I was desperate. You wouldn't kill a poor desperate fellow, would you?",
+			],
+		}
+		// and so on
