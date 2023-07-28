@@ -32,7 +32,7 @@ mod tests {
     fn guy_no_like_girl() -> Raconteur {
         let mut raconteur = Raconteur::new();
         raconteur.push(
-            StoryBeat::builder()
+            StoryNode::builder()
                 .with_description("low_opinion")
                 .with_alias("guy", vec![])
                 .with_alias("girl", vec![])
@@ -53,7 +53,7 @@ mod tests {
     fn guy_like_girl() -> Raconteur {
         let mut raconteur = Raconteur::new();
         raconteur.push(
-            StoryBeat::builder()
+            StoryNode::builder()
                 .with_description("guy_like_girl")
                 .with_alias("guy", vec![])
                 .with_alias("girl", vec![])

@@ -1,0 +1,15 @@
+Raconteur is a small story-telling engine to create procedural stories from templated story parts.
+
+Writers produce reusable story parts containing aliases for characters, items, locations, etc. For instance, a meeting between character A and B could have the following dialogue:
+	"Hello my dear {B.name}! How odd to meet you in {current_location.name}. Say, this {B.noteworthy_apparel} looks good on you! Anyway, I must go to {A.destination}. So long!"
+When asked for a relevant story part, the engine will go through its list of story parts to find one applicable for the provided query (which contains entities with their properties, and miscellanious world variables). It will find the above example to be a match if there are at least 2 characters, where the first one has a "destination" property and the second both a "name" and "noteworthy_apparel" properties. Result example:
+	"Hello my dear Jenny! How odd to meet you in Chillborrough Ridge. Say, this silver scarf looks good on you! Anyway, I must go to the barber. So long!"
+
+The story part format must be as flexible as possible in order to integrate with different games.
+
+Entities are a simple hashmap of property name to property. Properties can be of type string, i64 or f64. Developpers must add conversion methods for their characters, items, etc. into a StoryEntity. The only required property for story entities is a unique numerical id. This id is required in order to have relation constraints between those entities (ex: opinion of A on B, wealth difference of A and B, belong to same faction...).
+
+Story parts are actually graphs of story parts. Each part contains directives, which are written by the writers and then interpreted by the developpers. For now, a directive is just a string and developpers need to parse it to convert it to game events.
+
+A story graph has a start point. Every story part inherits the aliases and constraints of their parents. (This necessitates a sort of symlink for subgraphs with optional constraints that then link back to the main graph, like a conditional dialogue sub-branch)
+It is up to developpers how they navigate the graph. Ex: if in dialogue mode, child nodes can simply be used as dialogue choices. If multiple children whose constraints are all satisfied, devs may simply choose randomly. If no child has satisfied constraints, devs may either abandon the story or keep it for a while, checking once in a while if the constraints are now satisfied.

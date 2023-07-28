@@ -1,5 +1,5 @@
-mod story_beat;
+mod story_node;
 
 pub mod prelude {
-    pub use crate::story_beat::*;
+    pub use crate::story_node::*;
 }

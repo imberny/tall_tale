@@ -56,21 +56,22 @@ pub struct Query {
                                   //* discard: Vec<StoryBeat>, // TODO: some kind of identifier? uuid?
 }
 
+#[derive(Clone)]
 pub struct ConstrainedAlias(pub Alias, pub Vec<PropertyConstraint>);
 
 #[derive(Default)]
-pub struct StoryBeat {
+pub struct StoryNode {
     pub description: String,
     pub aliases: Vec<ConstrainedAlias>,
     pub relation_constraints: Vec<RelationConstraint>,
     pub world_constraints: Vec<WorldConstraint>,
     pub directives: Vec<String>, // TODO, some DSL instead of just strings? maybe this approach https://github.com/clap-rs/clap/blob/053c778e986d99b4f53afdb666d9398e75d8d2fb/examples/repl.rs
-    children: Vec<Rc<StoryBeat>>,
+    children: Vec<Rc<StoryNode>>,
 }
 
-impl StoryBeat {
-    pub fn builder() -> StoryBeatBuilder {
-        StoryBeatBuilder::new()
+impl StoryNode {
+    pub fn builder() -> StoryNodeBuilder {
+        StoryNodeBuilder::new()
     }
 
     pub fn is_leaf(&self) -> bool {
@@ -78,11 +79,11 @@ impl StoryBeat {
     }
 }
 
-pub struct StoryBeatBuilder(StoryBeat);
+pub struct StoryNodeBuilder(StoryNode);
 
-impl StoryBeatBuilder {
+impl StoryNodeBuilder {
     fn new() -> Self {
-        Self(StoryBeat::default())
+        Self(StoryNode::default())
     }
 
     pub fn with_description(mut self, description: impl Into<String>) -> Self {
@@ -115,17 +116,31 @@ impl StoryBeatBuilder {
         self
     }
 
-    pub fn build(self) -> StoryBeat {
+    // TODO: Rework all this using a graph. perhaps petgraph??
+    pub fn with_sub_node(mut self, mut sub_node: StoryNode) -> Self {
+        sub_node.aliases.extend(self.0.aliases.clone());
+        sub_node
+            .relation_constraints
+            .extend(self.0.relation_constraints.clone());
+        sub_node
+            .world_constraints
+            .extend(self.0.world_constraints.clone());
+        self.0.children.push(Rc::new(sub_node));
+        self
+    }
+
+    pub fn build(self) -> StoryNode {
         self.0
     }
 }
 
-impl Default for StoryBeatBuilder {
+impl Default for StoryNodeBuilder {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[derive(Clone)]
 pub enum PropertyConstraint {
     Has(PropertyName),
     IsInRange(PropertyName, Range<i64>),
@@ -145,6 +160,7 @@ impl PropertyConstraint {
     }
 }
 
+#[derive(Clone)]
 pub struct RelationConstraint {
     pub me: Alias,
     pub other: Alias,
@@ -161,15 +177,17 @@ impl RelationConstraint {
     }
 }
 
+#[derive(Clone)]
 pub enum WorldConstraint {
     HasProperty(PropertyName),
 }
 
 // TODO: constraints that check at least, between, etc. fail on string prop
-#[derive(Hash, PartialEq, Eq, Clone)]
+#[derive(PartialEq, Clone)]
 pub enum Property {
     String(String),
     Int(i64),
+    Float(f64),
 }
 
 impl Display for Property {
@@ -177,7 +195,7 @@ impl Display for Property {
         match self {
             Property::String(s) => write!(fmt, "{}", s),
             Property::Int(i) => write!(fmt, "{}", i),
-            // PropType::Float(f) => write!(fmt, "{}", f),
+            Property::Float(f) => write!(fmt, "{}", f),
         }
     }
 }
@@ -200,14 +218,14 @@ impl From<i64> for Property {
     }
 }
 
-// impl From<f64> for PropType {
-//     fn from(val: f64) -> Self {
-//         PropType::Float(val)
-//     }
-// }
+impl From<f64> for Property {
+    fn from(val: f64) -> Self {
+        Property::Float(val)
+    }
+}
 
 pub struct Raconteur {
-    story_beats: Vec<Rc<StoryBeat>>,
+    story_beats: Vec<Rc<StoryNode>>,
 }
 
 impl Raconteur {
@@ -217,13 +235,13 @@ impl Raconteur {
         }
     }
 
-    pub fn push(&mut self, story_beat: StoryBeat) {
+    pub fn push(&mut self, story_beat: StoryNode) {
         self.story_beats.push(Rc::new(story_beat))
     }
 
     // Returns a pair of valid story beat with its list of valid aliased entities
     // inner vec is a list of permutations of indices. first index is for first alias, etc.
-    pub fn query(&self, query: &Query) -> Vec<(Rc<StoryBeat>, Vec<Vec<usize>>)> {
+    pub fn query(&self, query: &Query) -> Vec<(Rc<StoryNode>, Vec<Vec<usize>>)> {
         // go through list of story beats, discarding those whose constraints aren't satisfied
 
         self.story_beats
@@ -246,14 +264,14 @@ impl Default for Raconteur {
     }
 }
 
-fn are_all_constraints_satisfied(beat: &Rc<StoryBeat>, query: &Query) -> Vec<Vec<usize>> {
+fn are_all_constraints_satisfied(beat: &Rc<StoryNode>, query: &Query) -> Vec<Vec<usize>> {
     if !are_world_constraints_satisfied(beat, query) {
         return vec![];
     }
     match_aliases(beat, query)
 }
 
-fn are_world_constraints_satisfied(beat: &Rc<StoryBeat>, query: &Query) -> bool {
+fn are_world_constraints_satisfied(beat: &Rc<StoryNode>, query: &Query) -> bool {
     beat.world_constraints
         .iter()
         .all(|constraint| match constraint {
@@ -261,7 +279,7 @@ fn are_world_constraints_satisfied(beat: &Rc<StoryBeat>, query: &Query) -> bool 
         })
 }
 
-fn match_aliases(beat: &Rc<StoryBeat>, query: &Query) -> Vec<Vec<usize>> {
+fn match_aliases(beat: &Rc<StoryNode>, query: &Query) -> Vec<Vec<usize>> {
     if query.entities.len() < beat.aliases.len() {
         return vec![];
     }
