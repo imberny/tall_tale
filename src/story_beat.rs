@@ -1,12 +1,5 @@
 use itertools::Itertools;
-use std::{
-    any::{Any, TypeId},
-    collections::HashMap,
-    default,
-    fmt::Display,
-    ops::Range,
-    rc::Rc,
-};
+use std::{collections::HashMap, fmt::Display, ops::Range, rc::Rc};
 
 const ID: &str = "id";
 
@@ -15,7 +8,6 @@ type PropertyName = String;
 type PropertyMap = HashMap<PropertyName, Property>;
 // key is a pair of ids, value is property from POV of 1st entity
 type RelationMap = HashMap<(Property, Property), PropertyMap>;
-type AliasMap<'a> = HashMap<Alias, &'a PropertyMap>;
 
 pub struct Query {
     pub entities: Vec<PropertyMap>, // characters, items, locations ... matched against alias_constraints
@@ -27,17 +19,17 @@ pub struct Query {
 pub struct ConstrainedAlias(pub Alias, pub Vec<PropertyConstraint>);
 
 #[derive(Default)]
-struct StoryBeat {
-    description: String,
-    aliases: Vec<ConstrainedAlias>,
-    relation_constraints: Vec<RelationConstraint>,
-    world_constraints: Vec<WorldConstraint>,
-    directives: Vec<String>, // TODO, some DSL instead of just strings? maybe this approach https://github.com/clap-rs/clap/blob/053c778e986d99b4f53afdb666d9398e75d8d2fb/examples/repl.rs
+pub struct StoryBeat {
+    pub description: String,
+    pub aliases: Vec<ConstrainedAlias>,
+    pub relation_constraints: Vec<RelationConstraint>,
+    pub world_constraints: Vec<WorldConstraint>,
+    pub directives: Vec<String>, // TODO, some DSL instead of just strings? maybe this approach https://github.com/clap-rs/clap/blob/053c778e986d99b4f53afdb666d9398e75d8d2fb/examples/repl.rs
     children: Vec<Rc<StoryBeat>>,
 }
 
 impl StoryBeat {
-    fn is_leaf(&self) -> bool {
+    pub fn is_leaf(&self) -> bool {
         self.children.is_empty()
     }
 }
@@ -61,19 +53,13 @@ impl PropertyConstraint {
     }
 }
 
-// pub enum AliasConstraintEnum {
-//     HasProperty(Alias, PropertyName),
-//     PropertyBetween(Alias, PropertyName, Range<i64>),
-//     RelationBetween(Alias, Alias, PropertyName, Range<i64>), // alias1 has a prop relative to alias2 that lies between provided range (ex: opinion of alias1 on alias2)
-// }
-
 pub struct RelationConstraint {
     pub me: Alias,
     pub other: Alias,
     pub constraint: PropertyConstraint,
 }
 
-enum WorldConstraint {
+pub enum WorldConstraint {
     HasProperty(PropertyName),
 }
 
@@ -146,6 +132,12 @@ impl Raconteur {
     }
 }
 
+impl Default for Raconteur {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 fn are_all_constraints_satisfied(beat: &Rc<StoryBeat>, query: &Query) -> Vec<Vec<usize>> {
     if !are_world_constraints_satisfied(beat, query) {
         return vec![];
@@ -166,13 +158,7 @@ fn match_aliases(beat: &Rc<StoryBeat>, query: &Query) -> Vec<Vec<usize>> {
         return vec![];
     }
 
-    // TODO: filter out invalid aliases for entities
-    // 	for each alias
-    //		filter valid entities
-    //		if no valid, return
-    //	create list of permutations, ensuring no duplicate entities in a single permutation
-    // 	then all thats left is to check relation constraints
-
+    // get all valid entity indices for each alias
     let alias_candidate_indices = beat
         .aliases
         .iter()
@@ -187,7 +173,7 @@ fn match_aliases(beat: &Rc<StoryBeat>, query: &Query) -> Vec<Vec<usize>> {
                 .filter_map(|(index, entity)| {
                     constraints
                         .iter()
-                        .all(|constraint| constraint.is_satisfied_by(&entity))
+                        .all(|constraint| constraint.is_satisfied_by(entity))
                         .then_some(index)
                 })
                 .collect_vec();
@@ -195,27 +181,15 @@ fn match_aliases(beat: &Rc<StoryBeat>, query: &Query) -> Vec<Vec<usize>> {
         })
         .collect_vec();
 
-    // turn candidate indices into permutations
-    // for each valid of alias 1:
-    //		for each valid of alias 2:
-    //			if valid1 != valid2
-    //				v.push((valid1, valid2))
-    //	How to generalize for n aliases?
-
-    // 	for each alias
-    //		v.push(index)
-
-    //	while i < alias.len()
-    //		cartesian of v and i
-
+    // produce all unique permutation of character indices for each alias
+    // To use itertools' cartesian product, must first populate the permutations vector once
     let mut alias_permutations = Vec::<Vec<usize>>::default();
     alias_candidate_indices[0]
         .1
         .iter()
         .for_each(|index| alias_permutations.push(vec![*index]));
-
-    for i in 1..alias_candidate_indices.len() {
-        let (_, candidate_indices) = &alias_candidate_indices[i];
+    for alias_candidates in alias_candidate_indices.iter().skip(1) {
+        let (_, candidate_indices) = alias_candidates;
         alias_permutations = alias_permutations
             .into_iter()
             .cartesian_product(candidate_indices.iter().cloned())
@@ -230,12 +204,10 @@ fn match_aliases(beat: &Rc<StoryBeat>, query: &Query) -> Vec<Vec<usize>> {
     }
     alias_permutations.retain(|permutation| permutation.len() == beat.aliases.len());
 
-    let valid_permutations = alias_permutations
+    alias_permutations
         .into_iter()
         .filter(|entity_indices| {
-            // TODO: missing step... use the actual provided indices
-            // get ids
-
+            // long winded approach to getting ids
             beat.relation_constraints.iter().all(|relation| {
                 let me_alias_idx = beat
                     .aliases
@@ -276,77 +248,7 @@ fn match_aliases(beat: &Rc<StoryBeat>, query: &Query) -> Vec<Vec<usize>> {
                     })
             })
         })
-        .collect_vec();
-
-    valid_permutations
-
-    // // TODO: clean up all that follows, it's now redundant
-    // // make all possible permutations of aliases
-    // let entity_permutations = query
-    //     .entities
-    //     .iter()
-    //     .permutations(beat.aliases.len())
-    //     .collect_vec();
-
-    // let valid_permutations = entity_permutations
-    //     .into_iter()
-    //     .filter_map(|permutation| {
-    //         let v = beat
-    //             .aliases
-    //             .iter()
-    //             .cloned()
-    //             .zip(permutation.iter().cloned())
-    //             .collect_vec();
-
-    //         let mut alias_properties = HashMap::<Alias, &PropertyMap>::default();
-    //         for i in 0..beat.aliases.len() {
-    //             alias_properties.insert(beat.aliases[i].clone(), permutation[i]);
-    //         }
-
-    //         // TODO: produce list of viable aliased characters
-    //         if beat
-    //             .alias_constraints
-    //             .iter()
-    //             .all(|constraint| match constraint {
-    //                 AliasConstraintEnum::HasProperty(alias, prop) => {
-    //                     let entity = alias_properties.get(alias).unwrap();
-    //                     entity.contains_key(prop)
-    //                 }
-    //                 AliasConstraintEnum::PropertyBetween(alias, prop, range) => todo!(),
-    //                 AliasConstraintEnum::RelationBetween(alias1, alias2, prop, range) => {
-    //                     let entity1 = alias_properties.get(alias1).unwrap();
-    //                     let entity2 = alias_properties.get(alias2).unwrap();
-    //                     let id1 = entity1.get(ID).unwrap().clone();
-    //                     let id2 = entity2.get(ID).unwrap().clone();
-
-    //                     if let Some(relation) = query.entity_relations.get(&(id1, id2)) {
-    //                         if let Some(relation_prop) = relation.get(prop) {
-    //                             match relation_prop {
-    //                                 Property::String(_) => false, // TODO: error
-    //                                 Property::Int(i) => range.contains(i),
-    //                             }
-    //                         } else {
-    //                             false
-    //                         }
-    //                     } else {
-    //                         false
-    //                     }
-    //                 }
-    //             })
-    //         {
-    //             let alias_ids: HashMap<_, _> = alias_properties
-    //                 .into_iter()
-    //                 .map(|(alias, property_map)| {
-    //                     (alias, property_map.get(&ID.to_string()).unwrap().clone())
-    //                 })
-    //                 .collect();
-    //             Some(alias_ids)
-    //         } else {
-    //             None
-    //         }
-    //     })
-    //     .collect_vec();
-    // valid_permutations
+        .collect()
 }
 
 #[cfg(test)]
