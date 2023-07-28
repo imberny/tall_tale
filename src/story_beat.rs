@@ -29,6 +29,10 @@ pub struct StoryBeat {
 }
 
 impl StoryBeat {
+    pub fn builder() -> StoryBeatBuilder {
+        StoryBeatBuilder::new()
+    }
+
     pub fn is_leaf(&self) -> bool {
         self.children.is_empty()
     }
@@ -37,7 +41,7 @@ impl StoryBeat {
 pub struct StoryBeatBuilder(StoryBeat);
 
 impl StoryBeatBuilder {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self(StoryBeat::default())
     }
 
