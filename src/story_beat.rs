@@ -3,14 +3,54 @@ use std::{collections::HashMap, fmt::Display, ops::Range, rc::Rc};
 
 pub const ID: &str = "id";
 
+pub type Id = i64;
 pub type Alias = String;
 pub type PropertyName = String;
 pub type PropertyMap = HashMap<PropertyName, Property>;
 // key is a pair of ids, value is property from POV of 1st entity
-pub type RelationMap = HashMap<(Property, Property), PropertyMap>;
+pub type RelationMap = HashMap<(Id, Id), PropertyMap>;
+
+pub struct Entity(PropertyMap);
+impl Entity {
+    pub fn builder(id: Id) -> EntityBuilder {
+        EntityBuilder::new(id)
+    }
+
+    fn new(id: Id) -> Self {
+        Self(PropertyMap::from([(ID.into(), id.into())]))
+    }
+
+    fn insert(&mut self, property_name: PropertyName, property: Property) {
+        self.0.insert(property_name, property);
+    }
+
+    pub fn get(&self, property_name: impl Into<PropertyName>) -> Option<&Property> {
+        self.0.get(&property_name.into())
+    }
+}
+
+pub struct EntityBuilder(Entity);
+impl EntityBuilder {
+    fn new(id: Id) -> Self {
+        Self(Entity::new(id))
+    }
+
+    pub fn with(
+        mut self,
+        property_name: impl Into<PropertyName>,
+        property: impl Into<Property>,
+    ) -> Self {
+        self.0.insert(property_name.into(), property.into());
+        self
+    }
+
+    pub fn build(self) -> Entity {
+        self.0
+    }
+}
 
 pub struct Query {
-    pub entities: Vec<PropertyMap>, // characters, items, locations ... matched against alias_constraints
+    pub entities: Vec<Entity>, // characters, items, locations ... matched against alias_constraints
     pub entity_relations: RelationMap,
     pub world_state: PropertyMap, // miscellanious world variables, matched agains world_constraints
                                   //* discard: Vec<StoryBeat>, // TODO: some kind of identifier? uuid?
@@ -50,9 +90,9 @@ impl StoryBeatBuilder {
         self
     }
 
-    pub fn with_alias(
+    pub fn with_alias<T: Into<Alias>>(
         mut self,
-        alias: impl Into<String>,
+        alias: T,
         constraints: Vec<PropertyConstraint>,
     ) -> Self {
         self.0
@@ -61,10 +101,10 @@ impl StoryBeatBuilder {
         self
     }
 
-    pub fn with_relation(
+    pub fn with_relation<T: Into<Alias>>(
         mut self,
-        me: impl Into<Alias>,
-        other: impl Into<Alias>,
+        me: T,
+        other: T,
         constraint: PropertyConstraint,
     ) -> Self {
         self.0.relation_constraints.push(RelationConstraint {
@@ -92,9 +132,9 @@ pub enum PropertyConstraint {
 }
 
 impl PropertyConstraint {
-    pub fn is_satisfied_by(&self, entity: &PropertyMap) -> bool {
+    pub fn is_satisfied_by(&self, entity: &Entity) -> bool {
         match self {
-            PropertyConstraint::Has(prop_name) => entity.contains_key(prop_name),
+            PropertyConstraint::Has(prop_name) => entity.get(prop_name).is_some(),
             PropertyConstraint::IsInRange(prop_name, range) => {
                 entity.get(prop_name).is_some_and(|prop| match prop {
                     Property::Int(value) => range.contains(value),
@@ -109,6 +149,16 @@ pub struct RelationConstraint {
     pub me: Alias,
     pub other: Alias,
     pub constraint: PropertyConstraint,
+}
+
+impl RelationConstraint {
+    pub fn new<T: Into<Alias>>(me: T, other: T, constraint: PropertyConstraint) -> Self {
+        Self {
+            me: me.into(),
+            other: other.into(),
+            constraint,
+        }
+    }
 }
 
 pub enum WorldConstraint {
@@ -129,6 +179,12 @@ impl Display for Property {
             Property::Int(i) => write!(fmt, "{}", i),
             // PropType::Float(f) => write!(fmt, "{}", f),
         }
+    }
+}
+
+impl From<&str> for Property {
+    fn from(val: &str) -> Self {
+        Property::String(val.into())
     }
 }
 
@@ -283,8 +339,10 @@ fn match_aliases(beat: &Rc<StoryBeat>, query: &Query) -> Vec<Vec<usize>> {
                     .unwrap();
                 let me_idx = entity_indices[me_alias_idx];
                 let other_idx = entity_indices[other_alias_idx];
-                let me_id = query.entities[me_idx].get(ID).unwrap().clone();
-                let other_id = query.entities[other_idx].get(ID).unwrap().clone();
+                let me_id_prop = query.entities[me_idx].get(ID).unwrap().clone();
+                let other_id_prop = query.entities[other_idx].get(ID).unwrap().clone();
+                let Property::Int(me_id) = me_id_prop else {panic!()};
+                let Property::Int(other_id) = other_id_prop else {panic!()};
 
                 query
                     .entity_relations

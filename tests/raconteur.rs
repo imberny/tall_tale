@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, rc::Rc};
+    use std::rc::Rc;
 
     use raconteur::prelude::*;
 
@@ -8,19 +8,17 @@ mod tests {
     const GIRL_ID: i64 = 1;
 
     fn query() -> Query {
-        let character1 = HashMap::<PropertyName, Property>::from([
-            (ID.to_string(), GUY_ID.into()),
-            ("name".to_string(), "Bertrand".to_string().into()),
-            ("age".to_string(), 30.into()),
-        ]);
-        let character2 = HashMap::<PropertyName, Property>::from([
-            (ID.to_string(), GIRL_ID.into()),
-            ("name".to_string(), "Juliette".to_string().into()),
-            ("age".to_string(), 32.into()),
-        ]);
+        let character1 = Entity::builder(GUY_ID)
+            .with("name", "Bertrand")
+            .with("age", 30)
+            .build();
+        let character2 = Entity::builder(GIRL_ID)
+            .with("name", "Juliette")
+            .with("age", 32)
+            .build();
 
         let relationships = RelationMap::from([(
-            (GUY_ID.into(), GIRL_ID.into()),
+            (GUY_ID, GIRL_ID),
             PropertyMap::from([("opinion".to_string(), 2.into())]),
         )]);
 
@@ -32,17 +30,15 @@ mod tests {
     }
 
     fn guy_no_like_girl() -> Raconteur {
-        let guy = "guy";
-        let girl = "girl";
         let mut raconteur = Raconteur::new();
         raconteur.push(
             StoryBeat::builder()
                 .with_description("low_opinion")
-                .with_alias(guy, vec![])
-                .with_alias(girl, vec![])
+                .with_alias("guy", vec![])
+                .with_alias("girl", vec![])
                 .with_relation(
-                    guy,
-                    girl,
+                    "guy",
+                    "girl",
                     PropertyConstraint::IsInRange(
                         "opinion".to_string(),
                         std::ops::Range { start: 0, end: 1 },
@@ -55,17 +51,15 @@ mod tests {
     }
 
     fn guy_like_girl() -> Raconteur {
-        let guy = "guy";
-        let girl = "girl";
         let mut raconteur = Raconteur::new();
         raconteur.push(
             StoryBeat::builder()
                 .with_description("guy_like_girl")
-                .with_alias(guy, vec![])
-                .with_alias(girl, vec![])
+                .with_alias("guy", vec![])
+                .with_alias("girl", vec![])
                 .with_relation(
-                    guy,
-                    girl,
+                    "guy",
+                    "girl",
                     PropertyConstraint::IsInRange(
                         "opinion".to_string(),
                         std::ops::Range { start: 1, end: 4 },
