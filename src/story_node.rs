@@ -111,57 +111,6 @@ impl StoryNode {
     }
 }
 
-pub struct StoryNodeBuilder(StoryNode);
-
-impl StoryNodeBuilder {
-    pub fn with_description(mut self, description: impl Into<String>) -> Self {
-        self.0.description = description.into();
-        self
-    }
-
-    pub fn with_alias<T: Into<Alias>>(
-        mut self,
-        alias: T,
-        constraints: Vec<PropertyConstraint>,
-    ) -> Self {
-        self.0
-            .aliases
-            .push(ConstrainedAlias(alias.into(), constraints));
-        self
-    }
-
-    pub fn with_relation<T: Into<Alias>>(
-        mut self,
-        me: T,
-        other: T,
-        constraint: PropertyConstraint,
-    ) -> Self {
-        self.0.relation_constraints.push(RelationConstraint {
-            me: me.into(),
-            other: other.into(),
-            constraint,
-        });
-        self
-    }
-
-    // // TODO: Rework all this using a graph. perhaps petgraph??
-    // pub fn with_sub_node(mut self, mut sub_node: StoryNode) -> Self {
-    //     sub_node.aliases.extend(self.0.aliases.clone());
-    //     sub_node
-    //         .relation_constraints
-    //         .extend(self.0.relation_constraints.clone());
-    //     sub_node
-    //         .world_constraints
-    //         .extend(self.0.world_constraints.clone());
-    //     self.0.children.push(Rc::new(sub_node));
-    //     self
-    // }
-
-    pub fn build(self) -> StoryNode {
-        self.0
-    }
-}
-
 #[derive(Clone, Serialize, Deserialize)]
 pub enum PropertyConstraint {
     Has(PropertyName),
