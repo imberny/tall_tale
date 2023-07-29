@@ -54,7 +54,6 @@ impl StoryNode {
     }
 
     // builder methods
-    //
 
     pub fn with_description<S>(mut self, description: S) -> Self
     where
@@ -64,7 +63,7 @@ impl StoryNode {
         self
     }
 
-    pub fn with_alias<A, C>(mut self, alias: A, constraints: C) -> Self
+    pub fn with_alias_constraints<A, C>(mut self, alias: A, constraints: C) -> Self
     where
         A: Into<Alias>,
         C: IntoIterator<Item = Constraint>,

@@ -25,8 +25,8 @@ mod tests {
             let idx = graph.add(
                 StoryNode::new()
                     .with_description("low_opinion")
-                    .with_alias("guy", [])
-                    .with_alias("girl", [])
+                    .with_alias_constraints("guy", [])
+                    .with_alias_constraints("girl", [])
                     .with_relation_constraints(
                         "guy",
                         "girl",
@@ -53,8 +53,8 @@ mod tests {
             let idx = graph.add(
                 StoryNode::new()
                     .with_description("guy_like_girl")
-                    .with_alias("guy", [])
-                    .with_alias("girl", [])
+                    .with_alias_constraints("guy", [])
+                    .with_alias_constraints("girl", [])
                     .with_relation_constraints(
                         "guy",
                         "girl",
@@ -95,7 +95,7 @@ mod tests {
         let mut raconteur = Raconteur::default();
         raconteur.insert({
             let mut graph = StoryGraph::new();
-            let node_idx = graph.add(StoryNode::new().with_alias(
+            let node_idx = graph.add(StoryNode::new().with_alias_constraints(
                 "baker",
                 [
                     Constraint::has("important"),
