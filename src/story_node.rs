@@ -62,16 +62,7 @@ impl StoryNode {
     pub fn are_world_constraints_satisfied(&self, query: &Query) -> bool {
         self.world_constraints
             .iter()
-            .all(|constraint| match constraint {
-                PropertyConstraint::Has(prop_name) => query.world_state.contains_key(prop_name),
-                PropertyConstraint::IsInRange(prop_name, range) => query
-                    .world_state
-                    .get(prop_name)
-                    .is_some_and(|prop| match prop {
-                        Property::Int(value) => range.contains(value),
-                        _ => false,
-                    }),
-            })
+            .all(|constraint| constraint.is_satisfied_by(&query.world_state))
     }
 
     pub fn find_alias_candidates(&self, query: &Query) -> Vec<Vec<usize>> {
@@ -94,7 +85,7 @@ impl StoryNode {
                     .filter_map(|(index, entity)| {
                         constraints
                             .iter()
-                            .all(|constraint| constraint.is_satisfied_by(entity))
+                            .all(|constraint| constraint.is_satisfied_by(&entity.properties))
                             .then_some(index)
                     })
                     .collect_vec();
@@ -104,6 +95,7 @@ impl StoryNode {
 
         // produce all unique permutation of character indices for each alias
         // To use itertools' cartesian product, must first populate the permutations vector once
+        // PERF: replace inner vec by Smallvec (which size? 5, 8, 20?)
         let mut alias_permutations = Vec::<Vec<usize>>::default();
         alias_candidate_indices[0]
             .1
@@ -151,15 +143,7 @@ impl StoryNode {
                     query
                         .entity_relations
                         .get(&(me_id, other_id))
-                        .is_some_and(|prop_map| match &relation.constraint {
-                            PropertyConstraint::Has(prop_name) => prop_map.contains_key(prop_name),
-                            PropertyConstraint::IsInRange(prop_name, range) => {
-                                prop_map.get(prop_name).is_some_and(|prop| match prop {
-                                    Property::Int(value) => range.contains(value),
-                                    _ => false,
-                                })
-                            }
-                        })
+                        .is_some_and(|properties| relation.constraint.is_satisfied_by(properties))
                 })
             })
             .collect()

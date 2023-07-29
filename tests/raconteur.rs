@@ -93,4 +93,16 @@ mod tests {
         let story_node = story_graph.start();
         assert_eq!(story_node.description, "guy_like_girl");
     }
+
+    // #[test]
+    // fn many_matches() {
+    //     let mut raconteur = Raconteur::default();
+    //     raconteur.insert({
+    //         let mut graph = StoryGraph::new();
+    //         let node_idx =
+    //             graph.add(StoryNode::new().with_alias("baker", vec![PropertyConstraint::]));
+
+    //         graph
+    //     });
+    // }
 }

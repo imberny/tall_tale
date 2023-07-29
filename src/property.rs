@@ -1,13 +1,19 @@
 use std::{collections::HashMap, fmt::Display};
 
+use serde::{Deserialize, Serialize};
+
 pub type PropertyName = String;
 pub type PropertyMap = HashMap<PropertyName, Property>;
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Serialize, Deserialize)]
 pub enum Property {
     String(String),
     Int(i64),
     Float(f64),
+}
+
+impl Eq for Property {
+    fn assert_receiver_is_total_eq(&self) {}
 }
 
 impl Display for Property {

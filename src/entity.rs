@@ -11,7 +11,7 @@ impl EntityId {
 
 pub struct Entity {
     id_: EntityId,
-    properties: PropertyMap,
+    pub properties: PropertyMap,
 }
 
 impl Entity {
@@ -34,9 +34,5 @@ impl Entity {
 
     pub fn id(&self) -> EntityId {
         self.id_
-    }
-
-    pub fn get(&self, property_name: impl Into<PropertyName>) -> Option<&Property> {
-        self.properties.get(&property_name.into())
     }
 }

@@ -7,6 +7,7 @@ mod story_graph;
 mod story_node;
 
 pub mod prelude {
+    // TODO: restrict pub types to strict minimum
     pub use crate::{
         constraint::{PropertyConstraint, RelationConstraint},
         entity::{Entity, EntityId},
