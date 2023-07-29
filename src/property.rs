@@ -2,14 +2,16 @@ use std::{collections::HashMap, fmt::Display};
 
 use serde::{Deserialize, Serialize};
 
+use crate::{Float, Integer};
+
 pub type PropertyName = String;
 pub type PropertyMap = HashMap<PropertyName, Property>;
 
 #[derive(PartialEq, Clone, Serialize, Deserialize)]
 pub enum Property {
     String(String),
-    Int(i64),
-    Float(f64),
+    Int(Integer),
+    Float(Float),
 }
 
 impl Display for Property {
@@ -34,14 +36,14 @@ impl From<String> for Property {
     }
 }
 
-impl From<i64> for Property {
-    fn from(val: i64) -> Self {
+impl From<Integer> for Property {
+    fn from(val: Integer) -> Self {
         Property::Int(val)
     }
 }
 
-impl From<f64> for Property {
-    fn from(val: f64) -> Self {
+impl From<Float> for Property {
+    fn from(val: Float) -> Self {
         Property::Float(val)
     }
 }

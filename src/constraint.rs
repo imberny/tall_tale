@@ -5,21 +5,32 @@ use serde::{Deserialize, Serialize};
 use crate::{
     property::{Property, PropertyMap, PropertyName},
     story_node::Alias,
+    Float, Integer,
 };
 
 #[derive(Clone, Serialize, Deserialize)]
 pub enum Constraint {
     Has(PropertyName),
     Equals(PropertyName, Property),
-    IsInRange(PropertyName, Range<i64>),
+    IsInRange(PropertyName, Range<Integer>),
+    IsInRangeFloat(PropertyName, Range<Float>),
 }
 
 impl Constraint {
-    pub fn is_in_range<N>(property_name: N, range: Range<i64>) -> Self
+    pub fn is_in_range<N, R>(property_name: N, range: R) -> Self
     where
         N: Into<PropertyName>,
+        R: Into<Range<Integer>>,
     {
-        Self::IsInRange(property_name.into(), range)
+        Self::IsInRange(property_name.into(), range.into())
+    }
+
+    pub fn is_in_range_float<N, R>(property_name: N, range: R) -> Self
+    where
+        N: Into<PropertyName>,
+        R: Into<Range<Float>>,
+    {
+        Self::IsInRangeFloat(property_name.into(), range.into())
     }
 
     pub fn has<N>(property_name: N) -> Self
@@ -45,7 +56,13 @@ impl Constraint {
                 .is_some_and(|ent_prop| property == ent_prop),
             Constraint::IsInRange(prop_name, range) => {
                 properties.get(prop_name).is_some_and(|prop| match prop {
-                    Property::Int(value) => range.contains(value),
+                    Property::Int(int) => range.contains(int),
+                    _ => false,
+                })
+            }
+            Constraint::IsInRangeFloat(prop_name, range) => {
+                properties.get(prop_name).is_some_and(|prop| match prop {
+                    Property::Float(float) => range.contains(float),
                     _ => false,
                 })
             }
