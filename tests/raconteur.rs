@@ -1,11 +1,10 @@
 #[cfg(test)]
 mod tests {
-    use std::ops::Range;
 
     use raconteur::prelude::*;
 
-    const GUY_ID: EntityId = EntityId::new(0);
-    const GIRL_ID: EntityId = EntityId::new(1);
+    const GUY_ID: usize = 0;
+    const GIRL_ID: usize = 1;
 
     fn query() -> Query {
         Query::new()
@@ -30,10 +29,7 @@ mod tests {
                     .with_relation_constraints(
                         "guy",
                         "girl",
-                        [Constraint::is_in_range(
-                            "opinion",
-                            Range { start: 0, end: 1 },
-                        )],
+                        [Constraint::is_in_range("opinion", 0..1)],
                     ),
             );
 
@@ -58,10 +54,7 @@ mod tests {
                     .with_relation_constraints(
                         "guy",
                         "girl",
-                        [Constraint::is_in_range(
-                            "opinion",
-                            Range { start: 1, end: 4 },
-                        )],
+                        [Constraint::is_in_range("opinion", 1..4)],
                     ),
             );
 
@@ -92,22 +85,108 @@ mod tests {
 
     #[test]
     fn many_matches() {
+        const MAX_MONEY: Float = 100000.0;
+        const PLAYER_ID: usize = 1;
+        const BAKER_ID: usize = 2;
+        const CUSTOMER_ID: usize = 3;
+
         let mut raconteur = Raconteur::default();
         raconteur.insert({
             let mut graph = StoryGraph::new();
-            let node_idx = graph.add(StoryNode::new().with_alias_constraints(
-                "baker",
-                [
-                    Constraint::has("important"),
-                    Constraint::equals("job", "baker"),
-                ],
-            ));
+            let node_idx = graph.add(
+                StoryNode::new()
+                    .with_alias_constraints(
+                        "baking_man",
+                        [
+                            Constraint::has("important"),
+                            Constraint::equals("job", "baker"),
+                        ],
+                    )
+                    .with_alias_constraints(
+                        "player",
+                        [
+                            Constraint::has("player"),
+                            Constraint::is_in_range_float("money", 10.0..MAX_MONEY), // TODO: at least, at most?
+                        ],
+                    )
+                    .with_world_constraint(Constraint::equals("location", "bakery")),
+            );
 
             graph.start_with(node_idx);
 
             graph
         });
 
-        // let mut query = Query::
+        raconteur.insert({
+            let mut graph = StoryGraph::new();
+            let node_idx = graph.add(
+                StoryNode::new()
+                    .with_alias_constraints(
+                        "baking_man",
+                        [
+                            Constraint::has("important"),
+                            Constraint::equals("job", "baker"),
+                        ],
+                    )
+                    .with_alias_constraints(
+                        "player",
+                        [
+                            Constraint::has("player"),
+                            Constraint::is_in_range_float("money", 0.0..20.0), // TODO: at least, at most?
+                        ],
+                    )
+                    .with_world_constraint(Constraint::equals("location", "bakery")),
+            );
+
+            graph.start_with(node_idx);
+
+            graph
+        });
+
+        let query_player_wealthy = Query::new()
+            .with_entities([
+                Entity::new(PLAYER_ID)
+                    .with("player", "")
+                    .with("money", 50.0),
+                Entity::new(BAKER_ID)
+                    .with("important", "")
+                    .with("job", "baker"),
+                Entity::new(CUSTOMER_ID),
+            ])
+            .with_world_property("location", "bakery");
+
+        let stories = raconteur.query(&query_player_wealthy);
+
+        assert_eq!(stories.len(), 1);
+
+        let query_player_poor = Query::new()
+            .with_entities([
+                Entity::new(PLAYER_ID).with("player", "").with("money", 0.0),
+                Entity::new(BAKER_ID)
+                    .with("important", "")
+                    .with("job", "baker"),
+                Entity::new(CUSTOMER_ID),
+            ])
+            .with_world_property("location", "bakery");
+
+        let stories = raconteur.query(&query_player_poor);
+
+        assert_eq!(stories.len(), 1);
+
+        let query_player_average_wealth = Query::new()
+            .with_entities([
+                Entity::new(PLAYER_ID)
+                    .with("player", "")
+                    .with("money", 15.0),
+                Entity::new(BAKER_ID)
+                    .with("important", "")
+                    .with("job", "baker"),
+                Entity::new(CUSTOMER_ID),
+            ])
+            .with_world_property("location", "bakery");
+
+        let stories = raconteur.query(&query_player_average_wealth);
+
+        assert_eq!(stories.len(), 2);
     }
 }

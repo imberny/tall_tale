@@ -12,7 +12,7 @@ pub type Float = f64;
 pub mod prelude {
     pub use crate::{
         constraint::Constraint,
-        entity::{Entity, EntityId},
+        entity::Entity,
         query::Query,
         raconteur::{Raconteur, StoryId},
         story_graph::StoryGraph,

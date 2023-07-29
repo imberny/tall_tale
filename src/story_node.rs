@@ -82,19 +82,15 @@ impl StoryNode {
         self
     }
 
-    pub fn with_world_constraint<N>(mut self, property_name: N) -> Self
-    where
-        N: Into<PropertyName>,
-    {
-        self.world_constraints
-            .push(Constraint::Has(property_name.into()));
+    pub fn with_world_constraint(mut self, constraint: Constraint) -> Self {
+        self.world_constraints.push(constraint);
         self
     }
 
     pub fn are_world_constraints_satisfied(&self, query: &Query) -> bool {
         self.world_constraints
             .iter()
-            .all(|constraint| constraint.is_satisfied_by(&query.world_state))
+            .all(|constraint| constraint.is_satisfied_by(&query.world_properties))
     }
 
     pub fn find_alias_candidates(&self, query: &Query) -> Vec<Vec<usize>> {
