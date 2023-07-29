@@ -9,12 +9,11 @@ mod story_node;
 pub mod prelude {
     // TODO: restrict pub types to strict minimum
     pub use crate::{
-        constraint::{AliasRelation, Constraint},
+        constraint::Constraint,
         entity::{Entity, EntityId},
-        property::{Property, PropertyMap},
-        query::*,
-        raconteur::*,
+        query::Query,
+        raconteur::{Raconteur, StoryId},
         story_graph::StoryGraph,
-        story_node::*,
+        story_node::StoryNode,
     };
 }

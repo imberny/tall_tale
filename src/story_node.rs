@@ -1,25 +1,48 @@
-use std::{collections::HashMap, ops::Range};
-
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     constraint::{AliasRelation, Constraint},
-    property::{Property, PropertyName},
+    property::{PropertyMap, PropertyName},
     query::Query,
     raconteur::EntityIndex,
 };
 
 pub type Alias = String;
-pub type AliasIndex = usize;
 
-#[derive(Clone, Serialize, Deserialize)]
-pub struct ConstrainedAlias(pub Alias, pub Vec<Constraint>);
+#[derive(Default, Serialize, Deserialize)]
+struct ConstrainedAlias {
+    alias: Alias,
+    constraints: Vec<Constraint>,
+}
+
+impl ConstrainedAlias {
+    pub fn new<A, C>(alias: A, constraints: C) -> Self
+    where
+        A: Into<Alias>,
+        C: IntoIterator<Item = Constraint>,
+    {
+        Self {
+            alias: alias.into(),
+            constraints: Vec::from_iter(constraints),
+        }
+    }
+
+    pub fn alias(&self) -> &Alias {
+        &self.alias
+    }
+
+    pub fn is_satisfied_by(&self, properties: &PropertyMap) -> bool {
+        self.constraints
+            .iter()
+            .all(|constraint| constraint.is_satisfied_by(properties))
+    }
+}
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct StoryNode {
     pub description: String,
-    aliases: HashMap<Alias, Vec<Constraint>>,
+    aliases: Vec<ConstrainedAlias>,
     relation_constraints: Vec<AliasRelation>,
     world_constraints: Vec<Constraint>,
     pub directives: Vec<String>, // TODO, some DSL instead of just strings? maybe this approach https://github.com/clap-rs/clap/blob/053c778e986d99b4f53afdb666d9398e75d8d2fb/examples/repl.rs
@@ -46,10 +69,7 @@ impl StoryNode {
         A: Into<Alias>,
         C: IntoIterator<Item = Constraint>,
     {
-        self.aliases
-            .entry(alias.into())
-            .or_default()
-            .extend(constraints);
+        self.aliases.push(ConstrainedAlias::new(alias, constraints));
         self
     }
 
@@ -84,23 +104,23 @@ impl StoryNode {
         }
 
         // get all valid entity indices for each alias
+        // first entry is for first alias in list, second for second alias etc.
         let alias_candidate_indices = self
             .aliases
             .iter()
-            .map(|(alias, constraints)| {
+            .map(|constrained_alias| {
                 // produce list of valid entity indices
                 let valid_indices = query
                     .entities
                     .iter()
                     .enumerate()
-                    .filter_map(|(index, entity)| {
-                        constraints
-                            .iter()
-                            .all(|constraint| constraint.is_satisfied_by(&entity.properties))
-                            .then_some(index)
+                    .filter_map(|(entity_index, entity)| {
+                        constrained_alias
+                            .is_satisfied_by(&entity.properties)
+                            .then_some(entity_index)
                     })
                     .collect_vec();
-                (alias, valid_indices)
+                valid_indices
             })
             .collect_vec();
 
@@ -109,11 +129,10 @@ impl StoryNode {
         // PERF: replace inner vec by Smallvec (which size? 5, 8, 20?)
         let mut alias_permutations = Vec::<Vec<usize>>::default();
         alias_candidate_indices[0]
-            .1
             .iter()
             .for_each(|index| alias_permutations.push(vec![*index]));
         for alias_candidates in alias_candidate_indices.iter().skip(1) {
-            let (_, candidate_indices) = alias_candidates;
+            let candidate_indices = alias_candidates;
             alias_permutations = alias_permutations
                 .into_iter()
                 .cartesian_product(candidate_indices.iter().cloned())
@@ -134,7 +153,7 @@ impl StoryNode {
                 .aliases
                 .iter()
                 .enumerate()
-                .find(|(_, (alias, _))| *alias == target_alias)
+                .find(|(_, constrained_alias)| constrained_alias.alias() == target_alias)
                 .map(|(idx, _)| idx)
                 .unwrap();
             let entity_index = entity_indices[alias_index];
