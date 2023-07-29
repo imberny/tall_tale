@@ -12,10 +12,6 @@ pub enum Property {
     Float(f64),
 }
 
-impl Eq for Property {
-    fn assert_receiver_is_total_eq(&self) {}
-}
-
 impl Display for Property {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

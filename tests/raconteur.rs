@@ -1,25 +1,21 @@
 #[cfg(test)]
 mod tests {
+    use std::ops::Range;
+
     use raconteur::prelude::*;
 
     const GUY_ID: EntityId = EntityId::new(0);
     const GIRL_ID: EntityId = EntityId::new(1);
 
     fn query() -> Query {
-        let character1 = Entity::new(GUY_ID).with("name", "Bertrand").with("age", 30);
-        let character2 = Entity::new(GIRL_ID)
-            .with("name", "Juliette")
-            .with("age", 32);
-        let relationships = RelationMap::from([(
-            (GUY_ID, GIRL_ID),
-            PropertyMap::from([("opinion".to_string(), 2.into())]),
-        )]);
-
-        Query {
-            entities: vec![character1, character2],
-            entity_relations: relationships,
-            world_state: PropertyMap::default(),
-        }
+        Query::new()
+            .with_entities([
+                Entity::new(GUY_ID).with("name", "Bertrand").with("age", 30),
+                Entity::new(GIRL_ID)
+                    .with("name", "Juliette")
+                    .with("age", 32),
+            ])
+            .with_relation(GUY_ID, GIRL_ID, "opinion", 2)
     }
 
     fn guy_no_like_girl() -> Raconteur {
@@ -29,15 +25,15 @@ mod tests {
             let idx = graph.add(
                 StoryNode::new()
                     .with_description("low_opinion")
-                    .with_alias("guy", vec![])
-                    .with_alias("girl", vec![])
-                    .with_relation(
+                    .with_alias("guy", [])
+                    .with_alias("girl", [])
+                    .with_relation_constraints(
                         "guy",
                         "girl",
-                        PropertyConstraint::IsInRange(
-                            "opinion".to_string(),
-                            std::ops::Range { start: 0, end: 1 },
-                        ),
+                        [Constraint::is_in_range(
+                            "opinion",
+                            Range { start: 0, end: 1 },
+                        )],
                     ),
             );
 
@@ -57,15 +53,15 @@ mod tests {
             let idx = graph.add(
                 StoryNode::new()
                     .with_description("guy_like_girl")
-                    .with_alias("guy", vec![])
-                    .with_alias("girl", vec![])
-                    .with_relation(
+                    .with_alias("guy", [])
+                    .with_alias("girl", [])
+                    .with_relation_constraints(
                         "guy",
                         "girl",
-                        PropertyConstraint::IsInRange(
-                            "opinion".to_string(),
-                            std::ops::Range { start: 1, end: 4 },
-                        ),
+                        [Constraint::is_in_range(
+                            "opinion",
+                            Range { start: 1, end: 4 },
+                        )],
                     ),
             );
 
@@ -94,15 +90,24 @@ mod tests {
         assert_eq!(story_node.description, "guy_like_girl");
     }
 
-    // #[test]
-    // fn many_matches() {
-    //     let mut raconteur = Raconteur::default();
-    //     raconteur.insert({
-    //         let mut graph = StoryGraph::new();
-    //         let node_idx =
-    //             graph.add(StoryNode::new().with_alias("baker", vec![PropertyConstraint::]));
+    #[test]
+    fn many_matches() {
+        let mut raconteur = Raconteur::default();
+        raconteur.insert({
+            let mut graph = StoryGraph::new();
+            let node_idx = graph.add(StoryNode::new().with_alias(
+                "baker",
+                [
+                    Constraint::has("important"),
+                    Constraint::equals("job", "baker"),
+                ],
+            ));
 
-    //         graph
-    //     });
-    // }
+            graph.start_with(node_idx);
+
+            graph
+        });
+
+        // let mut query = Query::
+    }
 }

@@ -7,9 +7,14 @@ When asked for a relevant story part, the engine will go through its list of sto
 
 The story part format must be as flexible as possible in order to integrate with different games.
 
-Entities are a simple hashmap of property name to property. Properties can be of type string, i64 or f64. Developpers must add conversion methods for their characters, items, etc. into a StoryEntity. The only required property for story entities is a unique numerical id. This id is required in order to have relation constraints between those entities (ex: opinion of A on B, wealth difference of A and B, belong to same faction...).
+Entities are a simple hashmap of property name to property. Properties can be of type string, i64 or f64. Developpers must add conversion methods for their characters, items, etc. into a StoryEntity. The only required property for story entities is a unique numerical id. This id is required in order to have relation constraints between those entities (ex: opinion of A on B, wealth difference of A and B, belong to same faction, character A owns item X...).
 
 Story parts are actually graphs of story parts. Each part contains directives, which are written by the writers and then interpreted by the developpers. For now, a directive is just a string and developpers need to parse it to convert it to game events.
 
 A story graph has a start point. Every story part inherits the aliases and constraints of their parents. (This necessitates a sort of symlink for subgraphs with optional constraints that then link back to the main graph, like a conditional dialogue sub-branch)
 It is up to developpers how they navigate the graph. Ex: if in dialogue mode, child nodes can simply be used as dialogue choices. If multiple children whose constraints are all satisfied, devs may simply choose randomly. If no child has satisfied constraints, devs may either abandon the story or keep it for a while, checking once in a while if the constraints are now satisfied.
+
+
+Property constraints:
+	You can check if an entity has a property, if it equals a value, or if it is within a specified range.
+	Example: a relationship value that goes from 0 to 10. I can check if it is between 6(acquaintance) and 10(devoted) to make sure character is favorable to me.

@@ -1,9 +1,11 @@
+use std::{collections::HashMap, ops::Range};
+
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    constraint::{PropertyConstraint, RelationConstraint},
-    property::Property,
+    constraint::{AliasRelation, Constraint},
+    property::{Property, PropertyName},
     query::Query,
     raconteur::EntityIndex,
 };
@@ -12,14 +14,14 @@ pub type Alias = String;
 pub type AliasIndex = usize;
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct ConstrainedAlias(pub Alias, pub Vec<PropertyConstraint>);
+pub struct ConstrainedAlias(pub Alias, pub Vec<Constraint>);
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct StoryNode {
     pub description: String,
-    pub aliases: Vec<ConstrainedAlias>,
-    pub relation_constraints: Vec<RelationConstraint>,
-    pub world_constraints: Vec<PropertyConstraint>,
+    aliases: HashMap<Alias, Vec<Constraint>>,
+    relation_constraints: Vec<AliasRelation>,
+    world_constraints: Vec<Constraint>,
     pub directives: Vec<String>, // TODO, some DSL instead of just strings? maybe this approach https://github.com/clap-rs/clap/blob/053c778e986d99b4f53afdb666d9398e75d8d2fb/examples/repl.rs
 }
 
@@ -29,33 +31,44 @@ impl StoryNode {
     }
 
     // builder methods
+    //
 
-    pub fn with_description(mut self, description: impl Into<String>) -> Self {
+    pub fn with_description<S>(mut self, description: S) -> Self
+    where
+        S: Into<String>,
+    {
         self.description = description.into();
         self
     }
 
-    pub fn with_alias<T: Into<Alias>>(
-        mut self,
-        alias: T,
-        constraints: Vec<PropertyConstraint>,
-    ) -> Self {
+    pub fn with_alias<A, C>(mut self, alias: A, constraints: C) -> Self
+    where
+        A: Into<Alias>,
+        C: IntoIterator<Item = Constraint>,
+    {
         self.aliases
-            .push(ConstrainedAlias(alias.into(), constraints));
+            .entry(alias.into())
+            .or_default()
+            .extend(constraints);
         self
     }
 
-    pub fn with_relation<T: Into<Alias>>(
-        mut self,
-        me: T,
-        other: T,
-        constraint: PropertyConstraint,
-    ) -> Self {
-        self.relation_constraints.push(RelationConstraint {
-            me: me.into(),
-            other: other.into(),
-            constraint,
-        });
+    pub fn with_relation_constraints<A, C>(mut self, me: A, other: A, constraints: C) -> Self
+    where
+        A: Into<Alias>,
+        C: IntoIterator<Item = Constraint>,
+    {
+        self.relation_constraints
+            .push(AliasRelation::new(me, other, constraints));
+        self
+    }
+
+    pub fn with_world_constraint<N>(mut self, property_name: N) -> Self
+    where
+        N: Into<PropertyName>,
+    {
+        self.world_constraints
+            .push(Constraint::Has(property_name.into()));
         self
     }
 
@@ -74,9 +87,7 @@ impl StoryNode {
         let alias_candidate_indices = self
             .aliases
             .iter()
-            .map(|constrained_alias| {
-                let ConstrainedAlias(alias, constraints) = constrained_alias;
-
+            .map(|(alias, constraints)| {
                 // produce list of valid entity indices
                 let valid_indices = query
                     .entities
@@ -123,10 +134,7 @@ impl StoryNode {
                 .aliases
                 .iter()
                 .enumerate()
-                .find(|(_, constrained_alias)| {
-                    let ConstrainedAlias(alias, _) = constrained_alias;
-                    alias == target_alias
-                })
+                .find(|(_, (alias, _))| *alias == target_alias)
                 .map(|(idx, _)| idx)
                 .unwrap();
             let entity_index = entity_indices[alias_index];
@@ -143,7 +151,7 @@ impl StoryNode {
                     query
                         .entity_relations
                         .get(&(me_id, other_id))
-                        .is_some_and(|properties| relation.constraint.is_satisfied_by(properties))
+                        .is_some_and(|properties| relation.is_satisfied_by(properties))
                 })
             })
             .collect()
