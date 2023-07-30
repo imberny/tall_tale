@@ -29,13 +29,29 @@ impl Raconteur {
             .iter()
             .enumerate()
             .filter_map(|(story_idx, story_graph)| {
-                let start_index = story_graph.start();
-                // TODO: go through children, look for at least one valid path to a childless node
-                story_graph
-                    .get(start_index)
-                    .try_matching_aliases(story_world)
-                    .ok()
-                    .map(|alias_candidates| (StoryId(story_idx), alias_candidates))
+                // go through children, look for at least one valid path to a childless node
+                let mut alias_candidates = Vec::default();
+                let mut node_indices = vec![story_graph.start()];
+                let mut success = false;
+                while !node_indices.is_empty() {
+                    let node_index = node_indices[0];
+                    node_indices = node_indices[1..].to_vec();
+                    let node = story_graph.get(node_index);
+
+                    // validate node
+                    // TODO: problem... since aliases are inherited by child nodes, we're generating duplicate matches.
+                    //		Should I pass in a structure of matched aliases? Or should inherited constraints be kept apart?
+                    if let Ok(candidates) = node.try_matching_aliases(story_world) {
+                        alias_candidates.extend(candidates);
+                        node_indices.extend(story_graph.connections(node_index));
+                        if story_graph.all_connections(node_index).is_empty() {
+                            // success! at least one reachable leaf node
+                            success = true;
+                            break;
+                        }
+                    }
+                }
+                success.then_some((StoryId(story_idx), alias_candidates))
             })
             .collect_vec()
     }

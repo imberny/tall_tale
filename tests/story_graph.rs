@@ -34,6 +34,7 @@ mod tests {
         assert!(result.is_ok());
     }
 
+    // TODO: maybe explicit inheritance isn't needed.. see StoryNode
     #[test]
     fn graph_child_inheritance() {
         let mut graph = StoryGraph::new();
@@ -55,9 +56,7 @@ mod tests {
             let parent = graph.get(parent_idx);
             let child = graph.get(child_idx);
 
-            assert_eq!(parent.aliases, child.aliases);
-            assert_eq!(parent.relation_constraints, child.relation_constraints);
-            assert_eq!(parent.world_constraints, child.world_constraints);
+            assert_eq!(parent.constraints, child.inherited_constraints);
         }
 
         // weak connections don't inherit
@@ -67,9 +66,7 @@ mod tests {
         {
             let parent = graph.get(parent_idx);
             let weak_child = graph.get(weak_child_idx);
-            assert_ne!(parent.aliases, weak_child.aliases);
-            assert_ne!(parent.relation_constraints, weak_child.relation_constraints);
-            assert_ne!(parent.world_constraints, weak_child.world_constraints);
+            assert_ne!(parent.constraints, weak_child.inherited_constraints);
         }
 
         let child_with_constraints_idx = graph.add(
@@ -93,21 +90,8 @@ mod tests {
             let child = graph.get(child_with_constraints_idx);
 
             // child should have inherited from parent, but should still have unique constraints
-            assert_ne!(parent.aliases, child.aliases);
-            assert!(parent
-                .aliases
-                .iter()
-                .all(|alias| child.aliases.contains(alias)));
-            assert_ne!(parent.relation_constraints, child.relation_constraints);
-            assert!(parent
-                .relation_constraints
-                .iter()
-                .all(|relation| child.relation_constraints.contains(relation)));
-            assert_ne!(parent.world_constraints, child.world_constraints);
-            assert!(parent
-                .world_constraints
-                .iter()
-                .all(|world_constraint| child.world_constraints.contains(world_constraint)));
+            assert_eq!(parent.constraints, child.inherited_constraints);
+            assert_ne!(parent.constraints, child.constraints);
         }
     }
 }

@@ -1,8 +1,9 @@
+use itertools::Itertools;
 use petgraph::{
     algo::toposort,
     prelude::{Graph, NodeIndex},
 };
-use std::{error::Error, fmt};
+use std::{collections::HashMap, error::Error, fmt};
 
 use crate::story_node::StoryNode;
 
@@ -15,14 +16,12 @@ impl fmt::Display for CycleDetected {
 }
 impl Error for CycleDetected {}
 
-struct WeakEdge(NodeIndex, NodeIndex);
-
 // #[derive(Serialize, Deserialize)]
 #[derive(Default)]
 pub struct StoryGraph {
     start_index: NodeIndex,
     graph: Graph<StoryNode, f64>,
-    weak_edges: Vec<WeakEdge>,
+    weak_edges: HashMap<NodeIndex, Vec<NodeIndex>>,
 }
 
 impl StoryGraph {
@@ -40,6 +39,12 @@ impl StoryGraph {
 
     pub fn connections(&self, node_id: NodeIndex) -> Vec<NodeIndex> {
         self.graph.neighbors(node_id).collect()
+    }
+
+    pub fn all_connections(&self, node_id: NodeIndex) -> Vec<NodeIndex> {
+        let mut connections = self.graph.neighbors(node_id).collect_vec();
+        connections.extend(self.weak_edges.get(&node_id).unwrap_or(&Vec::default()));
+        connections
     }
 
     pub fn start_with(&mut self, node_index: NodeIndex) {
@@ -67,22 +72,33 @@ impl StoryGraph {
         });
 
         if result.is_ok() {
+            // inherit constraints
             let parent = &self.graph[parent];
-            let aliases = parent.aliases.clone();
-            let relations = parent.relation_constraints.clone();
-            let world_constraints = parent.world_constraints.clone();
-            self.graph[child].aliases.extend(aliases);
-            self.graph[child].relation_constraints.extend(relations);
+            let aliases = parent.constraints.aliases.clone();
+            let relations = parent.constraints.relation_constraints.clone();
+            let world_constraints = parent.constraints.world_constraints.clone();
             self.graph[child]
+                .inherited_constraints
+                .aliases
+                .extend(aliases);
+            self.graph[child]
+                .inherited_constraints
+                .relation_constraints
+                .extend(relations);
+            self.graph[child]
+                .inherited_constraints
                 .world_constraints
                 .extend(world_constraints);
         }
         result
     }
 
-    //
+    // weak edges mean no inheritance in order to prevent cycles
     pub fn connect_weak(&mut self, from: NodeIndex, to: NodeIndex) -> Result<(), CycleDetected> {
-        self.weak_edges.push(WeakEdge(from, to));
+        self.weak_edges
+            .entry(from)
+            .or_insert(Vec::default())
+            .push(to);
         Ok(())
     }
 }
