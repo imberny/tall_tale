@@ -52,13 +52,11 @@ mod tests {
 
         const PROTAGONIST: usize = 0;
         const CITIZEN: usize = 1;
-        let query = StoryWorld::new().with_entities([
+        let story_world = StoryWorld::new().with_entities([
             Entity::new(PROTAGONIST).with("protagonist", ""),
             Entity::new(CITIZEN),
         ]);
 
-        let candidates = raconteur.query(&query);
-
-        // raconteur.unalias()
+        let candidates = raconteur.query(&story_world);
     }
 }

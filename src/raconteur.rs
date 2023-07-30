@@ -22,7 +22,7 @@ impl Raconteur {
 
     // Returns a pair of valid story beat with its list of valid aliased entities
     // inner vec is a list of permutations of indices. first index is for first alias, etc.
-    pub fn query(&self, query: &StoryWorld) -> Vec<(StoryId, Vec<AliasCandidates>)> {
+    pub fn query(&self, story_world: &StoryWorld) -> Vec<(StoryId, Vec<AliasCandidates>)> {
         // go through list of story beats, discarding those whose constraints aren't satisfied
 
         self.stories
@@ -32,7 +32,7 @@ impl Raconteur {
                 let story_node = story_graph.start();
                 // TODO: go through children, look for at least one valid path to a childless node
                 story_node
-                    .try_matching_aliases(query)
+                    .try_matching_aliases(story_world)
                     .ok()
                     .map(|alias_candidates| (StoryId(story_idx), alias_candidates))
             })

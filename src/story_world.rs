@@ -13,9 +13,9 @@ pub type RelationMap = HashMap<(EntityId, EntityId), PropertyMap>;
 #[derive(Default)]
 pub struct StoryWorld {
     pub(crate) entities: Vec<Entity>, // characters, items, locations ... matched against alias_constraints
-    pub(crate) entity_relations: RelationMap,
-    pub(crate) world_properties: PropertyMap, // miscellanious world variables, matched agains world_constraints
-                                              //* discard: Vec<StoryBeat>, // TODO: filter out already used stories... some kind of identifier? uuid?
+    pub(crate) relations: RelationMap,
+    pub(crate) properties: PropertyMap, // miscellanious world variables, matched agains world_constraints
+                                        //* discard: Vec<StoryBeat>, // TODO: filter out already used stories... some kind of identifier? uuid?
 }
 
 impl StoryWorld {
@@ -45,7 +45,7 @@ impl StoryWorld {
         N: Into<PropertyName>,
         P: Into<Property>,
     {
-        self.entity_relations
+        self.relations
             .entry((EntityId(me.into()), EntityId(other.into())))
             .or_default()
             .insert(property_name.into(), property.into());
@@ -58,7 +58,7 @@ impl StoryWorld {
         N: Into<PropertyName>,
         P: Into<Property>,
     {
-        self.world_properties
+        self.properties
             .insert(property_name.into(), property.into());
         self
     }

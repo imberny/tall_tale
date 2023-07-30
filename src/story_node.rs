@@ -109,28 +109,28 @@ impl StoryNode {
 
     pub(crate) fn try_matching_aliases(
         &self,
-        query: &StoryWorld,
+        story_world: &StoryWorld,
     ) -> Result<Vec<AliasCandidates>, NotSatisfied> {
-        if !self.are_world_constraints_satisfied(query) {
+        if !self.are_world_constraints_satisfied(story_world) {
             return Err(NotSatisfied);
         }
 
-        self.find_alias_candidates(query)
+        self.find_alias_candidates(story_world)
     }
 
-    pub fn are_world_constraints_satisfied(&self, query: &StoryWorld) -> bool {
+    pub fn are_world_constraints_satisfied(&self, story_world: &StoryWorld) -> bool {
         self.world_constraints
             .iter()
-            .all(|constraint| constraint.is_satisfied_by(&query.world_properties))
+            .all(|constraint| constraint.is_satisfied_by(&story_world.properties))
     }
 
     // Returns list of permutations of entity ids
     // TODO: how to improve this? this is unreadable
     pub fn find_alias_candidates(
         &self,
-        query: &StoryWorld,
+        story_world: &StoryWorld,
     ) -> Result<Vec<AliasCandidates>, NotSatisfied> {
-        if query.entities.len() < self.aliases.len() {
+        if story_world.entities.len() < self.aliases.len() {
             return Err(NotSatisfied);
         }
 
@@ -141,7 +141,7 @@ impl StoryNode {
             .iter()
             .map(|constrained_alias| {
                 // produce list of valid entity indices
-                let valid_indices = query
+                let valid_indices = story_world
                     .entities
                     .iter()
                     .filter_map(|entity| {
@@ -196,8 +196,8 @@ impl StoryNode {
                     let me_id = EntityId(get_id(&relation.me, permutation_ids));
                     let other_id = EntityId(get_id(&relation.other, permutation_ids));
 
-                    query
-                        .entity_relations
+                    story_world
+                        .relations
                         .get(&(me_id, other_id))
                         .is_some_and(|properties| relation.is_satisfied_by(properties))
                 })
