@@ -29,9 +29,10 @@ impl Raconteur {
             .iter()
             .enumerate()
             .filter_map(|(story_idx, story_graph)| {
-                let story_node = story_graph.start();
+                let start_index = story_graph.start();
                 // TODO: go through children, look for at least one valid path to a childless node
-                story_node
+                story_graph
+                    .get(start_index)
                     .try_matching_aliases(story_world)
                     .ok()
                     .map(|alias_candidates| (StoryId(story_idx), alias_candidates))

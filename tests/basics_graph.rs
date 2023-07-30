@@ -58,5 +58,24 @@ mod tests {
         ]);
 
         let candidates = raconteur.query(&story_world);
+        assert_eq!(candidates.len(), 1);
+        let (story_id, alias_candidates) = &candidates[0];
+        assert_eq!(alias_candidates.len(), 1);
+        let aliases = &alias_candidates[0];
+        assert_eq!(aliases["player"], PROTAGONIST);
+        assert_eq!(aliases["citizen"], CITIZEN);
+        let story_graph = raconteur.get(*story_id);
+
+        let mut node_index = story_graph.start();
+        let mut nodes_traversed = 0;
+        loop {
+            node_index = story_graph.connections(node_index)[0];
+            nodes_traversed += 1;
+            if story_graph.connections(node_index).is_empty() {
+                break;
+            }
+        }
+
+        assert_eq!(nodes_traversed, 2);
     }
 }

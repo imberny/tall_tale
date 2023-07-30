@@ -79,8 +79,8 @@ mod tests {
         let story_candidates = raconteur.query(&query());
         let (story_id, _alias_candidates) = &story_candidates[0];
         let story_graph = raconteur.get(*story_id);
-        let story_node = story_graph.start();
-        assert_eq!(story_node.description, "guy_like_girl");
+        let start_node = story_graph.get(story_graph.start());
+        assert_eq!(start_node.description, "guy_like_girl");
     }
 
     #[test]
@@ -161,8 +161,8 @@ mod tests {
         let (_story_id, alias_candidates) = &stories[0];
         assert_eq!(alias_candidates.len(), 1);
         let aliases = &alias_candidates[0];
-        assert_eq!(aliases[&"player".to_string()], PLAYER_ID);
-        assert_eq!(aliases[&"baking_man".to_string()], BAKER_ID);
+        assert_eq!(aliases["player"], PLAYER_ID);
+        assert_eq!(aliases["baking_man"], BAKER_ID);
 
         let query_player_poor = StoryWorld::new()
             .with_entities([
@@ -180,8 +180,8 @@ mod tests {
         let (_story_id, alias_candidates) = &stories[0];
         assert_eq!(alias_candidates.len(), 1);
         let aliases = &alias_candidates[0];
-        assert_eq!(aliases[&"player".to_string()], PLAYER_ID);
-        assert_eq!(aliases[&"baking_man".to_string()], BAKER_ID);
+        assert_eq!(aliases["player"], PLAYER_ID);
+        assert_eq!(aliases["baking_man"], BAKER_ID);
 
         let query_player_average_wealth = StoryWorld::new()
             .with_entities([

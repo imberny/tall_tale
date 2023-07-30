@@ -196,10 +196,12 @@ impl StoryNode {
                     let me_id = EntityId(get_id(&relation.me, permutation_ids));
                     let other_id = EntityId(get_id(&relation.other, permutation_ids));
 
-                    story_world
+                    let default_props = PropertyMap::default();
+                    let relation_properties = story_world
                         .relations
                         .get(&(me_id, other_id))
-                        .is_some_and(|properties| relation.is_satisfied_by(properties))
+                        .unwrap_or(&default_props);
+                    relation.is_satisfied_by(relation_properties)
                 })
             })
             .map(|permutation| {

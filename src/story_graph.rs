@@ -1,7 +1,7 @@
 use petgraph::{
     algo::{toposort, DfsSpace},
     prelude::{Graph, NodeIndex},
-    visit::{Dfs, GraphBase, Visitable},
+    visit::{Dfs, GraphBase, IntoNeighbors, Visitable},
 };
 use std::{error::Error, fmt};
 
@@ -31,12 +31,16 @@ impl StoryGraph {
         Self::default()
     }
 
-    pub fn start(&self) -> &StoryNode {
-        &self.graph[self.start_index]
+    pub fn start(&self) -> NodeIndex {
+        self.start_index
     }
 
     pub fn get(&self, node_id: NodeIndex) -> &StoryNode {
         &self.graph[node_id]
+    }
+
+    pub fn connections(&self, node_id: NodeIndex) -> Vec<NodeIndex> {
+        self.graph.neighbors(node_id).collect()
     }
 
     pub fn start_with(&mut self, node_index: NodeIndex) {
