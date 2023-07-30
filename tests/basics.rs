@@ -158,6 +158,11 @@ mod tests {
         let stories = raconteur.query(&query_player_wealthy);
 
         assert_eq!(stories.len(), 1);
+        let (_story_id, alias_candidates) = &stories[0];
+        assert_eq!(alias_candidates.len(), 1);
+        let aliases = &alias_candidates[0];
+        assert_eq!(aliases[&"player".to_string()], PLAYER_ID);
+        assert_eq!(aliases[&"baking_man".to_string()], BAKER_ID);
 
         let query_player_poor = Query::new()
             .with_entities([
@@ -172,6 +177,11 @@ mod tests {
         let stories = raconteur.query(&query_player_poor);
 
         assert_eq!(stories.len(), 1);
+        let (_story_id, alias_candidates) = &stories[0];
+        assert_eq!(alias_candidates.len(), 1);
+        let aliases = &alias_candidates[0];
+        assert_eq!(aliases[&"player".to_string()], PLAYER_ID);
+        assert_eq!(aliases[&"baking_man".to_string()], BAKER_ID);
 
         let query_player_average_wealth = Query::new()
             .with_entities([

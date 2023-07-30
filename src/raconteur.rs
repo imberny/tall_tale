@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::{query::Query, story_graph::StoryGraph};
+use crate::{query::Query, story_graph::StoryGraph, story_node::AliasCandidates};
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy)]
 pub struct StoryId(usize);
@@ -22,8 +22,7 @@ impl Raconteur {
 
     // Returns a pair of valid story beat with its list of valid aliased entities
     // inner vec is a list of permutations of indices. first index is for first alias, etc.
-    // TODO: would be better to have a hashmap of aliases to entity ids, since child nodes may have more aliases and relying on alias indices would become ambiguous
-    pub fn query(&self, query: &Query) -> Vec<(StoryId, Vec<Vec<usize>>)> {
+    pub fn query(&self, query: &Query) -> Vec<(StoryId, Vec<AliasCandidates>)> {
         // go through list of story beats, discarding those whose constraints aren't satisfied
 
         self.stories
@@ -31,16 +30,11 @@ impl Raconteur {
             .enumerate()
             .filter_map(|(story_idx, story_graph)| {
                 let story_node = story_graph.start();
-                if !story_node.are_world_constraints_satisfied(query) {
-                    return None;
-                }
-
-                let alias_candidates = story_node.find_alias_candidates(query);
-                if alias_candidates.is_empty() {
-                    None
-                } else {
-                    Some((StoryId(story_idx), alias_candidates))
-                }
+                // TODO: go through children, look for at least one valid path to a childless node
+                story_node
+                    .try_matching_aliases(query)
+                    .ok()
+                    .map(|alias_candidates| (StoryId(story_idx), alias_candidates))
             })
             .collect_vec()
     }

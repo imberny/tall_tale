@@ -1,3 +1,5 @@
+use std::{collections::HashMap, error::Error, fmt};
+
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
@@ -9,9 +11,19 @@ use crate::{
 };
 
 pub type Alias = String;
+pub type AliasCandidates = HashMap<Alias, usize>;
 
-#[derive(Default, Serialize, Deserialize)]
-struct ConstrainedAlias {
+#[derive(Debug)]
+pub struct NotSatisfied;
+impl fmt::Display for NotSatisfied {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Story node constraints not satisfied")
+    }
+}
+impl Error for NotSatisfied {}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ConstrainedAlias {
     alias: Alias,
     constraints: Vec<Constraint>,
 }
@@ -39,12 +51,12 @@ impl ConstrainedAlias {
     }
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Debug, Serialize, Deserialize)]
 pub struct StoryNode {
     pub description: String,
-    aliases: Vec<ConstrainedAlias>,
-    relation_constraints: Vec<AliasRelation>,
-    world_constraints: Vec<Constraint>,
+    pub aliases: Vec<ConstrainedAlias>,
+    pub relation_constraints: Vec<AliasRelation>,
+    pub world_constraints: Vec<Constraint>,
     pub directives: Vec<String>, // TODO, some DSL instead of just strings? maybe this approach https://github.com/clap-rs/clap/blob/053c778e986d99b4f53afdb666d9398e75d8d2fb/examples/repl.rs
 }
 
@@ -95,6 +107,17 @@ impl StoryNode {
         self
     }
 
+    pub(crate) fn try_matching_aliases(
+        &self,
+        query: &Query,
+    ) -> Result<Vec<AliasCandidates>, NotSatisfied> {
+        if !self.are_world_constraints_satisfied(query) {
+            return Err(NotSatisfied);
+        }
+
+        self.find_alias_candidates(query)
+    }
+
     pub fn are_world_constraints_satisfied(&self, query: &Query) -> bool {
         self.world_constraints
             .iter()
@@ -103,9 +126,12 @@ impl StoryNode {
 
     // Returns list of permutations of entity ids
     // TODO: how to improve this? this is unreadable
-    pub fn find_alias_candidates(&self, query: &Query) -> Vec<Vec<usize>> {
+    pub fn find_alias_candidates(
+        &self,
+        query: &Query,
+    ) -> Result<Vec<AliasCandidates>, NotSatisfied> {
         if query.entities.len() < self.aliases.len() {
-            return vec![];
+            return Err(NotSatisfied);
         }
 
         // get all valid entity indices for each alias
@@ -163,7 +189,7 @@ impl StoryNode {
             entity_ids[alias_index]
         };
 
-        alias_permutations
+        let valid_permutations = alias_permutations
             .into_iter()
             .filter(|permutation_ids| {
                 self.relation_constraints.iter().all(|relation| {
@@ -176,6 +202,22 @@ impl StoryNode {
                         .is_some_and(|properties| relation.is_satisfied_by(properties))
                 })
             })
-            .collect()
+            .map(|permutation| {
+                permutation
+                    .into_iter()
+                    .enumerate()
+                    .map(|(alias_index, entity_id)| {
+                        let alias = self.aliases[alias_index].alias.clone();
+                        (alias, entity_id)
+                    })
+                    .collect()
+            })
+            .collect_vec();
+
+        if valid_permutations.is_empty() {
+            Err(NotSatisfied)
+        } else {
+            Ok(valid_permutations)
+        }
     }
 }

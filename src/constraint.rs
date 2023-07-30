@@ -8,7 +8,7 @@ use crate::{
     Float, Integer,
 };
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Constraint {
     Has(PropertyName),
     HasNot(PropertyName),
@@ -79,7 +79,7 @@ impl Constraint {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct AliasRelation {
     pub me: Alias,
     pub other: Alias,
