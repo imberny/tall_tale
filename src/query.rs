@@ -12,10 +12,10 @@ pub type RelationMap = HashMap<(EntityId, EntityId), PropertyMap>;
 // TODO: improve api with builder methods
 #[derive(Default)]
 pub struct Query {
-    pub entities: Vec<Entity>, // characters, items, locations ... matched against alias_constraints
-    pub entity_relations: RelationMap,
-    pub world_properties: PropertyMap, // miscellanious world variables, matched agains world_constraints
-                                       //* discard: Vec<StoryBeat>, // TODO: filter out already used stories... some kind of identifier? uuid?
+    pub(crate) entities: Vec<Entity>, // characters, items, locations ... matched against alias_constraints
+    pub(crate) entity_relations: RelationMap,
+    pub(crate) world_properties: PropertyMap, // miscellanious world variables, matched agains world_constraints
+                                              //* discard: Vec<StoryBeat>, // TODO: filter out already used stories... some kind of identifier? uuid?
 }
 
 impl Query {
@@ -28,10 +28,7 @@ impl Query {
         self
     }
 
-    pub fn with_entities<E>(mut self, entities: E) -> Self
-    where
-        E: IntoIterator<Item = Entity>,
-    {
+    pub fn with_entities(mut self, entities: impl IntoIterator<Item = Entity>) -> Self {
         self.entities.extend(entities);
         self
     }
@@ -44,12 +41,12 @@ impl Query {
         property: P,
     ) -> Self
     where
-        ID: Into<EntityId>,
+        ID: Into<usize>,
         N: Into<PropertyName>,
         P: Into<Property>,
     {
         self.entity_relations
-            .entry((me.into(), other.into()))
+            .entry((EntityId(me.into()), EntityId(other.into())))
             .or_default()
             .insert(property_name.into(), property.into());
 

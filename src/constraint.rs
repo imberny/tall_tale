@@ -11,6 +11,7 @@ use crate::{
 #[derive(Clone, Serialize, Deserialize)]
 pub enum Constraint {
     Has(PropertyName),
+    HasNot(PropertyName),
     Equals(PropertyName, Property),
     IsInRange(PropertyName, Range<Integer>),
     IsInRangeFloat(PropertyName, Range<Float>),
@@ -40,6 +41,13 @@ impl Constraint {
         Self::Has(property_name.into())
     }
 
+    pub fn has_not<N>(property_name: N) -> Self
+    where
+        N: Into<PropertyName>,
+    {
+        Self::HasNot(property_name.into())
+    }
+
     pub fn equals<N, P>(property_name: N, to: P) -> Self
     where
         N: Into<PropertyName>,
@@ -51,6 +59,7 @@ impl Constraint {
     pub fn is_satisfied_by(&self, properties: &PropertyMap) -> bool {
         match self {
             Constraint::Has(prop_name) => properties.get(prop_name).is_some(),
+            Constraint::HasNot(prop_name) => properties.get(prop_name).is_none(),
             Constraint::Equals(prop_name, property) => properties
                 .get(prop_name)
                 .is_some_and(|ent_prop| property == ent_prop),

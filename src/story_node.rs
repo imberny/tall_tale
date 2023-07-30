@@ -3,9 +3,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     constraint::{AliasRelation, Constraint},
+    entity::EntityId,
     property::{PropertyMap, PropertyName},
     query::Query,
-    raconteur::EntityIndex,
 };
 
 pub type Alias = String;
@@ -57,7 +57,7 @@ impl StoryNode {
 
     pub fn with_description<S>(mut self, description: S) -> Self
     where
-        S: Into<String>,
+        S: Into<PropertyName>,
     {
         self.description = description.into();
         self
@@ -87,12 +87,22 @@ impl StoryNode {
         self
     }
 
+    pub fn with_directive<D>(mut self, directive: D) -> Self
+    where
+        D: Into<String>,
+    {
+        self.directives.push(directive.into());
+        self
+    }
+
     pub fn are_world_constraints_satisfied(&self, query: &Query) -> bool {
         self.world_constraints
             .iter()
             .all(|constraint| constraint.is_satisfied_by(&query.world_properties))
     }
 
+    // Returns list of permutations of entity ids
+    // TODO: how to improve this? this is unreadable
     pub fn find_alias_candidates(&self, query: &Query) -> Vec<Vec<usize>> {
         if query.entities.len() < self.aliases.len() {
             return vec![];
@@ -108,11 +118,10 @@ impl StoryNode {
                 let valid_indices = query
                     .entities
                     .iter()
-                    .enumerate()
-                    .filter_map(|(entity_index, entity)| {
+                    .filter_map(|entity| {
                         constrained_alias
                             .is_satisfied_by(&entity.properties)
-                            .then_some(entity_index)
+                            .then_some(entity.id().0)
                     })
                     .collect_vec();
                 valid_indices
@@ -125,17 +134,17 @@ impl StoryNode {
         let mut alias_permutations = Vec::<Vec<usize>>::default();
         alias_candidate_indices[0]
             .iter()
-            .for_each(|index| alias_permutations.push(vec![*index]));
+            .for_each(|id| alias_permutations.push(vec![*id]));
         for alias_candidates in alias_candidate_indices.iter().skip(1) {
-            let candidate_indices = alias_candidates;
+            let candidate_ids = alias_candidates;
             alias_permutations = alias_permutations
                 .into_iter()
-                .cartesian_product(candidate_indices.iter().cloned())
-                .filter_map(|(mut indices, new_index)| {
-                    let is_unique = !indices.contains(&new_index);
+                .cartesian_product(candidate_ids.iter().cloned())
+                .filter_map(|(mut ids, new_id)| {
+                    let is_unique = !ids.contains(&new_id);
                     is_unique.then(|| {
-                        indices.push(new_index);
-                        indices
+                        ids.push(new_id);
+                        ids
                     })
                 })
                 .collect();
@@ -143,7 +152,7 @@ impl StoryNode {
         alias_permutations.retain(|permutation| permutation.len() == self.aliases.len());
 
         // long winded approach to getting ids
-        let get_id = |target_alias: &Alias, entity_indices: &Vec<EntityIndex>| {
+        let get_id = |target_alias: &Alias, entity_ids: &Vec<usize>| {
             let alias_index = self
                 .aliases
                 .iter()
@@ -151,16 +160,15 @@ impl StoryNode {
                 .find(|(_, constrained_alias)| constrained_alias.alias() == target_alias)
                 .map(|(idx, _)| idx)
                 .unwrap();
-            let entity_index = entity_indices[alias_index];
-            query.entities[entity_index].id()
+            entity_ids[alias_index]
         };
 
         alias_permutations
             .into_iter()
-            .filter(|entity_indices| {
+            .filter(|permutation_ids| {
                 self.relation_constraints.iter().all(|relation| {
-                    let me_id = get_id(&relation.me, entity_indices);
-                    let other_id = get_id(&relation.other, entity_indices);
+                    let me_id = EntityId(get_id(&relation.me, permutation_ids));
+                    let other_id = EntityId(get_id(&relation.other, permutation_ids));
 
                     query
                         .entity_relations

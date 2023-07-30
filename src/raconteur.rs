@@ -2,8 +2,6 @@ use itertools::Itertools;
 
 use crate::{query::Query, story_graph::StoryGraph};
 
-pub type EntityIndex = usize;
-
 #[derive(Hash, PartialEq, Eq, Clone, Copy)]
 pub struct StoryId(usize);
 
@@ -24,7 +22,8 @@ impl Raconteur {
 
     // Returns a pair of valid story beat with its list of valid aliased entities
     // inner vec is a list of permutations of indices. first index is for first alias, etc.
-    pub fn query(&self, query: &Query) -> Vec<(StoryId, Vec<Vec<EntityIndex>>)> {
+    // TODO: would be better to have a hashmap of aliases to entity ids, since child nodes may have more aliases and relying on alias indices would become ambiguous
+    pub fn query(&self, query: &Query) -> Vec<(StoryId, Vec<Vec<usize>>)> {
         // go through list of story beats, discarding those whose constraints aren't satisfied
 
         self.stories

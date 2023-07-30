@@ -13,6 +13,7 @@ pub mod prelude {
     pub use crate::{
         constraint::Constraint,
         entity::Entity,
+        property::PropertyName,
         query::Query,
         raconteur::{Raconteur, StoryId},
         story_graph::StoryGraph,

@@ -1,7 +1,7 @@
 use crate::property::{Property, PropertyMap, PropertyName};
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy)]
-pub struct EntityId(usize);
+pub struct EntityId(pub usize);
 
 impl From<usize> for EntityId {
     fn from(value: usize) -> Self {
@@ -17,10 +17,10 @@ pub struct Entity {
 impl Entity {
     pub fn new<I>(id: I) -> Self
     where
-        I: Into<EntityId>,
+        I: Into<usize>,
     {
         Self {
-            id_: id.into(),
+            id_: EntityId(id.into()),
             properties: PropertyMap::default(),
         }
     }
