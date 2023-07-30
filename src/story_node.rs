@@ -7,7 +7,7 @@ use crate::{
     constraint::{AliasRelation, Constraint},
     entity::EntityId,
     property::{PropertyMap, PropertyName},
-    query::Query,
+    story_world::StoryWorld,
 };
 
 pub type Alias = String;
@@ -109,7 +109,7 @@ impl StoryNode {
 
     pub(crate) fn try_matching_aliases(
         &self,
-        query: &Query,
+        query: &StoryWorld,
     ) -> Result<Vec<AliasCandidates>, NotSatisfied> {
         if !self.are_world_constraints_satisfied(query) {
             return Err(NotSatisfied);
@@ -118,7 +118,7 @@ impl StoryNode {
         self.find_alias_candidates(query)
     }
 
-    pub fn are_world_constraints_satisfied(&self, query: &Query) -> bool {
+    pub fn are_world_constraints_satisfied(&self, query: &StoryWorld) -> bool {
         self.world_constraints
             .iter()
             .all(|constraint| constraint.is_satisfied_by(&query.world_properties))
@@ -128,7 +128,7 @@ impl StoryNode {
     // TODO: how to improve this? this is unreadable
     pub fn find_alias_candidates(
         &self,
-        query: &Query,
+        query: &StoryWorld,
     ) -> Result<Vec<AliasCandidates>, NotSatisfied> {
         if query.entities.len() < self.aliases.len() {
             return Err(NotSatisfied);

@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use raconteur::prelude::{Constraint, Entity, Query, Raconteur, StoryGraph, StoryNode};
+    use raconteur::prelude::{Constraint, Entity, Raconteur, StoryGraph, StoryNode, StoryWorld};
 
     #[test]
     fn story_node_with_one_child() {
@@ -52,7 +52,7 @@ mod tests {
 
         const PROTAGONIST: usize = 0;
         const CITIZEN: usize = 1;
-        let query = Query::new().with_entities([
+        let query = StoryWorld::new().with_entities([
             Entity::new(PROTAGONIST).with("protagonist", ""),
             Entity::new(CITIZEN),
         ]);

@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::{query::Query, story_graph::StoryGraph, story_node::AliasCandidates};
+use crate::{story_graph::StoryGraph, story_node::AliasCandidates, story_world::StoryWorld};
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy)]
 pub struct StoryId(usize);
@@ -22,7 +22,7 @@ impl Raconteur {
 
     // Returns a pair of valid story beat with its list of valid aliased entities
     // inner vec is a list of permutations of indices. first index is for first alias, etc.
-    pub fn query(&self, query: &Query) -> Vec<(StoryId, Vec<AliasCandidates>)> {
+    pub fn query(&self, query: &StoryWorld) -> Vec<(StoryId, Vec<AliasCandidates>)> {
         // go through list of story beats, discarding those whose constraints aren't satisfied
 
         self.stories

@@ -11,14 +11,14 @@ pub type RelationMap = HashMap<(EntityId, EntityId), PropertyMap>;
 
 // TODO: improve api with builder methods
 #[derive(Default)]
-pub struct Query {
+pub struct StoryWorld {
     pub(crate) entities: Vec<Entity>, // characters, items, locations ... matched against alias_constraints
     pub(crate) entity_relations: RelationMap,
     pub(crate) world_properties: PropertyMap, // miscellanious world variables, matched agains world_constraints
                                               //* discard: Vec<StoryBeat>, // TODO: filter out already used stories... some kind of identifier? uuid?
 }
 
-impl Query {
+impl StoryWorld {
     pub fn new() -> Self {
         Self::default()
     }
