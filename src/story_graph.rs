@@ -1,7 +1,6 @@
 use petgraph::{
-    algo::{toposort, DfsSpace},
+    algo::toposort,
     prelude::{Graph, NodeIndex},
-    visit::{Dfs, GraphBase, IntoNeighbors, Visitable},
 };
 use std::{error::Error, fmt};
 
