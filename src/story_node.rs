@@ -1,16 +1,15 @@
-use std::{collections::HashMap, error::Error, fmt};
+use std::{error::Error, fmt};
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
     constraint::{AliasRelation, Constraint},
-    entity::EntityId,
     property::{PropertyMap, PropertyName},
+    story_graph::AliasMap,
     story_world::StoryWorld,
 };
 
 pub type Alias = String;
-pub type AliasCandidates = HashMap<Alias, usize>;
 
 #[derive(Debug)]
 pub struct NotSatisfied;
@@ -22,13 +21,13 @@ impl fmt::Display for NotSatisfied {
 impl Error for NotSatisfied {}
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ConstrainedAlias {
+pub(crate) struct ConstrainedAlias {
     alias: Alias,
     constraints: Vec<Constraint>,
 }
 
 impl ConstrainedAlias {
-    pub fn new<A, C>(alias: A, constraints: C) -> Self
+    pub(crate) fn new<A, C>(alias: A, constraints: C) -> Self
     where
         A: Into<Alias>,
         C: IntoIterator<Item = Constraint>,
@@ -39,11 +38,11 @@ impl ConstrainedAlias {
         }
     }
 
-    pub fn alias(&self) -> &Alias {
+    pub(crate) fn alias(&self) -> &Alias {
         &self.alias
     }
 
-    pub fn is_satisfied_by(&self, properties: &PropertyMap) -> bool {
+    pub(crate) fn is_satisfied_by(&self, properties: &PropertyMap) -> bool {
         self.constraints
             .iter()
             .all(|constraint| constraint.is_satisfied_by(properties))
@@ -96,25 +95,25 @@ impl StoryNode {
         self
     }
 
-    pub fn are_world_constraints_satisfied(&self, story_world: &StoryWorld) -> bool {
+    pub(crate) fn are_world_constraints_satisfied(&self, story_world: &StoryWorld) -> bool {
         self.world_constraints
             .iter()
             .all(|constraint| constraint.is_satisfied_by(&story_world.properties))
     }
 
-    pub fn are_relation_constraints_satisfied(
+    pub(crate) fn are_relation_constraints_satisfied(
         &self,
         story_world: &StoryWorld,
-        alias_entities: &HashMap<Alias, EntityId>,
+        alias_entities: &AliasMap,
     ) -> bool {
         self.relation_constraints.iter().all(|relation| {
             let me_id = if let Some(id) = alias_entities.get(&relation.me) {
-                *id
+                id
             } else {
                 return false;
             };
             let other_id = if let Some(id) = alias_entities.get(&relation.other) {
-                *id
+                id
             } else {
                 return false;
             };

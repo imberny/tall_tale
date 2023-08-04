@@ -1,13 +1,16 @@
 use itertools::Itertools;
 
-use crate::{story_graph::StoryGraph, story_node::AliasCandidates, story_world::StoryWorld};
+use crate::{
+    story_graph::{AliasMap, StoryGraph},
+    story_world::StoryWorld,
+};
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy)]
 pub struct StoryId(usize);
 
 pub struct StoryCandidate {
     pub id: StoryId,
-    pub alias_candidates: Vec<AliasCandidates>,
+    pub alias_candidates: Vec<AliasMap>,
 }
 
 // #[derive(Serialize, Deserialize)]
@@ -31,6 +34,7 @@ impl Raconteur {
         self.stories
             .iter()
             .enumerate()
+            .filter(|&(index, _)| story_world.is_included(&StoryId(index)))
             .filter_map(|(story_idx, story_graph)| {
                 let result = story_graph.alias_candidates(story_world);
 
@@ -44,5 +48,31 @@ impl Raconteur {
 
     pub fn get(&self, story_id: StoryId) -> &StoryGraph {
         &self.stories[story_id.0]
+    }
+}
+
+#[cfg(test)]
+mod unit_tests {
+    use crate::prelude::{StoryGraph, StoryNode, StoryWorld};
+
+    use super::Raconteur;
+
+    #[test]
+    fn a_story_can_be_excluded_from_the_query_result() {
+        let mut raconteur = Raconteur::new();
+        raconteur.insert({
+            let mut graph = StoryGraph::new();
+            let a = graph.add(StoryNode::new());
+            graph.set_start_node(a);
+            graph
+        });
+
+        let mut story_world = StoryWorld::new();
+
+        let stories = raconteur.query(&story_world);
+        assert!(!stories.is_empty());
+        story_world.exclude(&[stories[0].id]);
+        let stories = raconteur.query(&story_world);
+        assert!(stories.is_empty());
     }
 }

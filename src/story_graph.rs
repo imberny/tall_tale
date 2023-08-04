@@ -7,6 +7,7 @@ use std::{
     collections::{HashMap, HashSet},
     error::Error,
     fmt,
+    ops::Index,
 };
 
 use crate::{
@@ -14,6 +15,27 @@ use crate::{
     prelude::{Constraint, StoryWorld},
     story_node::{Alias, ConstrainedAlias, StoryNode},
 };
+
+#[derive(Default)]
+pub struct AliasMap(HashMap<Alias, EntityId>);
+
+impl AliasMap {
+    fn associate(&mut self, alias: Alias, entity: EntityId) {
+        self.0.insert(alias, entity);
+    }
+
+    pub fn get(&self, alias: &str) -> Option<EntityId> {
+        self.0.get(alias).cloned()
+    }
+}
+
+impl Index<&str> for AliasMap {
+    type Output = EntityId;
+
+    fn index(&self, key: &str) -> &EntityId {
+        self.0.get(key).expect("no entry found for key")
+    }
+}
 
 #[derive(Debug)]
 pub struct CycleDetected;
@@ -80,7 +102,7 @@ impl StoryGraph {
         &self,
         node_id: StoryNodeId,
         story_world: &StoryWorld,
-        alias_map: &HashMap<Alias, EntityId>,
+        alias_map: &AliasMap,
     ) -> Vec<StoryNodeId> {
         self.all_connections(node_id.0)
             .into_iter()
@@ -135,7 +157,7 @@ impl StoryGraph {
     pub fn alias_candidates(
         &self,
         story_world: &StoryWorld,
-    ) -> Result<Vec<HashMap<Alias, EntityId>>, ConstraintsNotSatisfied> {
+    ) -> Result<Vec<AliasMap>, ConstraintsNotSatisfied> {
         if self.aliases.is_empty() {
             return Ok(vec![]);
         }
@@ -170,7 +192,7 @@ impl StoryGraph {
 
     // return list of possible alias permutations
     // Doesn't validate relation constraints, a those can vary from node to node and thus affect which choices are available
-    fn alias_permutations(&self, story_world: &StoryWorld) -> Vec<HashMap<Alias, EntityId>> {
+    fn alias_permutations(&self, story_world: &StoryWorld) -> Vec<AliasMap> {
         let alias_candidates: HashMap<_, _> = self
             .aliases
             .iter()
@@ -209,9 +231,9 @@ impl StoryGraph {
 
         let mut alias_permutations = vec![];
         for permutation in permutations {
-            let mut alias_permutation = HashMap::default();
+            let mut alias_permutation = AliasMap::default();
             for (entity, alias) in permutation {
-                alias_permutation.insert(alias.clone(), entity);
+                alias_permutation.associate(alias.clone(), entity);
             }
             alias_permutations.push(alias_permutation);
         }
@@ -247,7 +269,7 @@ fn collect_tree(node_id: StoryNodeId, story_graph: &StoryGraph) -> Node {
 fn valid_alias_permutations(
     node: &Node,
     story_world: &StoryWorld,
-    alias_binding_permutations: &[HashMap<String, EntityId>],
+    alias_binding_permutations: &[AliasMap],
     parent_valid_indices: &HashSet<usize>,
 ) -> HashSet<usize> {
     if !node.story.are_world_constraints_satisfied(story_world) {

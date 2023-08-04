@@ -159,6 +159,7 @@ mod story_graph_tests {
         } = &result[0];
         assert_eq!(alias_candidates.len(), 8);
 
+        // TODO: problem, if the story world changes a leaf node might not be reachable. What to do in that case? Simply drop the story?
         let story_graph = raconteur.get(*id);
         for alias_map in alias_candidates {
             let mut node_id = story_graph.start();
