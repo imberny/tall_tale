@@ -24,6 +24,15 @@ impl fmt::Display for CycleDetected {
 }
 impl Error for CycleDetected {}
 
+#[derive(Debug)]
+pub struct ConstraintsNotSatisfied;
+impl fmt::Display for ConstraintsNotSatisfied {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Constraints not satisfied")
+    }
+}
+impl Error for ConstraintsNotSatisfied {}
+
 // #[derive(Serialize, Deserialize)]
 #[derive(Default)]
 pub struct StoryGraph {
@@ -98,71 +107,19 @@ impl StoryGraph {
         Ok(())
     }
 
-    pub fn alias_candidates(&self, story_world: &StoryWorld) -> Vec<HashMap<Alias, EntityId>> {
-        struct Node<'a> {
-            pub story: &'a StoryNode,
-            pub children: Vec<Node<'a>>,
-        }
-
-        fn collect_tree(node_id: NodeIndex, story_graph: &StoryGraph) -> Node {
-            let mut node = Node {
-                story: story_graph.get(node_id),
-                children: vec![],
-            };
-
-            for child_id in story_graph.connections(node_id) {
-                node.children.push(collect_tree(child_id, story_graph));
-            }
-
-            node
-        }
-
-        // returns list of indices of valid bindings
-        fn valid_alias_permutations(
-            node: &Node,
-            story_world: &StoryWorld,
-            alias_binding_permutations: &[HashMap<String, EntityId>],
-            parent_valid_indices: &HashSet<usize>,
-        ) -> HashSet<usize> {
-            if !node.story.are_world_constraints_satisfied(story_world) {
-                return HashSet::default();
-            }
-
-            let valid_indices: HashSet<_> = alias_binding_permutations
-                .iter()
-                .enumerate()
-                .filter(|(index, permutation)| {
-                    parent_valid_indices.contains(index)
-                        && node
-                            .story
-                            .are_relation_constraints_satisfied(story_world, permutation)
-                })
-                .map(|(index, _)| index)
-                .collect();
-
-            if node.children.is_empty() {
-                return valid_indices;
-            }
-
-            let mut final_valid_indices = HashSet::default();
-            for child_node in &node.children {
-                let child_valid_indices = valid_alias_permutations(
-                    child_node,
-                    story_world,
-                    alias_binding_permutations,
-                    &valid_indices,
-                );
-                final_valid_indices.extend(child_valid_indices);
-            }
-
-            final_valid_indices
+    pub fn alias_candidates(
+        &self,
+        story_world: &StoryWorld,
+    ) -> Result<Vec<HashMap<Alias, EntityId>>, ConstraintsNotSatisfied> {
+        if self.aliases.is_empty() {
+            return Ok(vec![]);
         }
 
         // assert at least one valid alias permutation
         let permutations = self.alias_permutations(story_world);
 
         if permutations.is_empty() {
-            return vec![];
+            return Err(ConstraintsNotSatisfied);
         }
 
         let node = collect_tree(self.start(), self);
@@ -170,7 +127,7 @@ impl StoryGraph {
         let valid_permutation_indices =
             valid_alias_permutations(&node, story_world, &permutations, &permutation_indices);
 
-        permutations
+        let valid_permutations = permutations
             .into_iter()
             .enumerate()
             .filter_map(|(index, permutation)| {
@@ -178,7 +135,12 @@ impl StoryGraph {
                     .contains(&index)
                     .then_some(permutation)
             })
-            .collect_vec()
+            .collect_vec();
+
+        let any_valid_permutation = !valid_permutations.is_empty();
+        any_valid_permutation
+            .then_some(valid_permutations)
+            .ok_or(ConstraintsNotSatisfied)
     }
 
     // return list of possible alias permutations
@@ -231,4 +193,71 @@ impl StoryGraph {
 
         alias_permutations
     }
+}
+
+struct Node<'a> {
+    pub story: &'a StoryNode,
+    pub children: Vec<Node<'a>>,
+    pub is_leaf: bool,
+}
+
+fn collect_tree(node_id: NodeIndex, story_graph: &StoryGraph) -> Node {
+    let mut node = Node {
+        story: story_graph.get(node_id),
+        children: vec![],
+        is_leaf: false,
+    };
+
+    node.is_leaf = story_graph.all_connections(node_id).is_empty();
+
+    for child_id in story_graph.connections(node_id) {
+        node.children.push(collect_tree(child_id, story_graph));
+    }
+
+    node
+}
+
+// returns list of indices of valid bindings
+fn valid_alias_permutations(
+    node: &Node,
+    story_world: &StoryWorld,
+    alias_binding_permutations: &[HashMap<String, EntityId>],
+    parent_valid_indices: &HashSet<usize>,
+) -> HashSet<usize> {
+    if !node.story.are_world_constraints_satisfied(story_world) {
+        return HashSet::default();
+    }
+
+    let valid_indices: HashSet<_> = alias_binding_permutations
+        .iter()
+        .enumerate()
+        .filter(|(index, permutation)| {
+            parent_valid_indices.contains(index)
+                && node
+                    .story
+                    .are_relation_constraints_satisfied(story_world, permutation)
+        })
+        .map(|(index, _)| index)
+        .collect();
+
+    if node.children.is_empty() {
+        if node.is_leaf {
+            return valid_indices;
+        } else {
+            return HashSet::default();
+        }
+    }
+
+    let mut final_valid_indices = HashSet::default();
+    for child_node in &node.children {
+        let child_valid_indices = valid_alias_permutations(
+            child_node,
+            story_world,
+            alias_binding_permutations,
+            &valid_indices,
+        );
+        final_valid_indices.extend(child_valid_indices);
+    }
+
+    final_valid_indices
 }

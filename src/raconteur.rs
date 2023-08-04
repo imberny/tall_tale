@@ -32,13 +32,9 @@ impl Raconteur {
             .iter()
             .enumerate()
             .filter_map(|(story_idx, story_graph)| {
-                let alias_candidates = story_graph.alias_candidates(story_world);
+                let result = story_graph.alias_candidates(story_world);
 
-                if alias_candidates.is_empty() {
-                    return None;
-                }
-
-                Some(StoryCandidate {
+                result.ok().map(|alias_candidates| StoryCandidate {
                     id: StoryId(story_idx),
                     alias_candidates,
                 })

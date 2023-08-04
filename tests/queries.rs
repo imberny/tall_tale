@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod tests {
+mod query_tests {
 
     use raconteur::prelude::*;
 
