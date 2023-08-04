@@ -24,24 +24,6 @@ impl fmt::Display for CycleDetected {
 }
 impl Error for CycleDetected {}
 
-#[derive(Default)]
-pub struct AliasPermutation {
-    alias_to_id: HashMap<Alias, EntityId>,
-    id_to_alias: HashMap<EntityId, Alias>,
-}
-impl AliasPermutation {
-    pub fn id(&self, alias: &Alias) -> Option<&EntityId> {
-        self.alias_to_id.get(alias)
-    }
-    pub fn alias(&self, id: &EntityId) -> Option<&Alias> {
-        self.id_to_alias.get(id)
-    }
-    pub fn associate(&mut self, alias: &Alias, id: &EntityId) {
-        self.alias_to_id.insert(alias.clone(), *id);
-        self.id_to_alias.insert(*id, alias.clone());
-    }
-}
-
 // #[derive(Serialize, Deserialize)]
 #[derive(Default)]
 pub struct StoryGraph {
@@ -116,9 +98,92 @@ impl StoryGraph {
         Ok(())
     }
 
+    pub fn alias_candidates(&self, story_world: &StoryWorld) -> Vec<HashMap<Alias, EntityId>> {
+        struct Node<'a> {
+            pub story: &'a StoryNode,
+            pub children: Vec<Node<'a>>,
+        }
+
+        fn collect_tree(node_id: NodeIndex, story_graph: &StoryGraph) -> Node {
+            let mut node = Node {
+                story: story_graph.get(node_id),
+                children: vec![],
+            };
+
+            for child_id in story_graph.connections(node_id) {
+                node.children.push(collect_tree(child_id, story_graph));
+            }
+
+            node
+        }
+
+        // returns list of indices of valid bindings
+        fn valid_alias_permutations(
+            node: &Node,
+            story_world: &StoryWorld,
+            alias_binding_permutations: &[HashMap<String, EntityId>],
+            parent_valid_indices: &HashSet<usize>,
+        ) -> HashSet<usize> {
+            if !node.story.are_world_constraints_satisfied(story_world) {
+                return HashSet::default();
+            }
+
+            let valid_indices: HashSet<_> = alias_binding_permutations
+                .iter()
+                .enumerate()
+                .filter(|(index, permutation)| {
+                    parent_valid_indices.contains(index)
+                        && node
+                            .story
+                            .are_relation_constraints_satisfied(story_world, permutation)
+                })
+                .map(|(index, _)| index)
+                .collect();
+
+            if node.children.is_empty() {
+                return valid_indices;
+            }
+
+            let mut final_valid_indices = HashSet::default();
+            for child_node in &node.children {
+                let child_valid_indices = valid_alias_permutations(
+                    child_node,
+                    story_world,
+                    alias_binding_permutations,
+                    &valid_indices,
+                );
+                final_valid_indices.extend(child_valid_indices);
+            }
+
+            final_valid_indices
+        }
+
+        // assert at least one valid alias permutation
+        let permutations = self.alias_permutations(story_world);
+
+        if permutations.is_empty() {
+            return vec![];
+        }
+
+        let node = collect_tree(self.start(), self);
+        let permutation_indices = HashSet::from_iter(0..permutations.len());
+        let valid_permutation_indices =
+            valid_alias_permutations(&node, story_world, &permutations, &permutation_indices);
+
+        permutations
+            .into_iter()
+            .enumerate()
+            .filter_map(|(index, permutation)| {
+                valid_permutation_indices
+                    .contains(&index)
+                    .then_some(permutation)
+            })
+            .collect_vec()
+    }
+
     // return list of possible alias permutations
     // Doesn't validate relation constraints, a those can vary from node to node and thus affect which choices are available
-    pub fn alias_permutations(&self, story_world: &StoryWorld) -> Vec<HashMap<Alias, EntityId>> {
+    fn alias_permutations(&self, story_world: &StoryWorld) -> Vec<HashMap<Alias, EntityId>> {
         let alias_candidates: HashMap<_, _> = self
             .aliases
             .iter()

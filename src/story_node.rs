@@ -1,10 +1,5 @@
-use std::{
-    collections::{HashMap, HashSet},
-    error::Error,
-    fmt,
-};
+use std::{collections::HashMap, error::Error, fmt};
 
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::{

@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use raconteur::prelude::{Constraint, StoryGraph, StoryNode};
+    use raconteur::prelude::{StoryGraph, StoryNode};
 
     #[test]
     fn graph_cycle() {

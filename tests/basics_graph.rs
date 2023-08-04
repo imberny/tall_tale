@@ -84,7 +84,7 @@ mod tests {
     }
 
     #[test]
-    fn a_graph_with_no_leaf_node_is_invalid() {
+    fn a_graph_with_no_leaf_node_is_not_picked() {
         let mut raconteur = Raconteur::new();
         raconteur.insert({
             let mut graph = StoryGraph::new();
