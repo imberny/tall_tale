@@ -34,7 +34,7 @@ mod query_tests {
                     ),
             );
 
-            graph.start_with(idx);
+            graph.set_start_node(idx);
 
             graph
         });
@@ -60,7 +60,7 @@ mod query_tests {
                     ),
             );
 
-            graph.start_with(idx);
+            graph.set_start_node(idx);
 
             graph
         });
@@ -114,7 +114,7 @@ mod query_tests {
                 StoryNode::new().with_world_constraint(Constraint::equals("location", "bakery")),
             );
 
-            graph.start_with(node_idx);
+            graph.set_start_node(node_idx);
 
             graph
         });
@@ -140,7 +140,7 @@ mod query_tests {
                 StoryNode::new().with_world_constraint(Constraint::equals("location", "bakery")),
             );
 
-            graph.start_with(node_idx);
+            graph.set_start_node(node_idx);
 
             graph
         });

@@ -33,11 +33,14 @@ impl fmt::Display for ConstraintsNotSatisfied {
 }
 impl Error for ConstraintsNotSatisfied {}
 
+#[derive(Default, Clone, Copy)]
+pub struct StoryNodeId(NodeIndex);
+
 // #[derive(Serialize, Deserialize)]
 #[derive(Default)]
 pub struct StoryGraph {
     aliases: Vec<ConstrainedAlias>,
-    start_index: NodeIndex,
+    start_id: StoryNodeId,
     graph: Graph<StoryNode, f64>,
     weak_edges: HashMap<NodeIndex, Vec<NodeIndex>>,
 }
@@ -47,8 +50,8 @@ impl StoryGraph {
         Self::default()
     }
 
-    pub fn start(&self) -> NodeIndex {
-        self.start_index
+    pub fn start(&self) -> StoryNodeId {
+        self.start_id
     }
 
     pub fn add_alias<A, C>(&mut self, alias: A, constraints: C)
@@ -59,39 +62,57 @@ impl StoryGraph {
         self.aliases.push(ConstrainedAlias::new(alias, constraints));
     }
 
-    pub fn get(&self, node_id: NodeIndex) -> &StoryNode {
-        &self.graph[node_id]
+    pub fn get(&self, node_id: StoryNodeId) -> &StoryNode {
+        &self.graph[node_id.0]
     }
 
-    pub fn connections(&self, node_id: NodeIndex) -> Vec<NodeIndex> {
+    pub(crate) fn connections(&self, node_id: NodeIndex) -> Vec<NodeIndex> {
         self.graph.neighbors(node_id).collect()
     }
 
-    pub fn all_connections(&self, node_id: NodeIndex) -> Vec<NodeIndex> {
+    pub(crate) fn all_connections(&self, node_id: NodeIndex) -> Vec<NodeIndex> {
         let mut connections = self.graph.neighbors(node_id).collect_vec();
         connections.extend(self.weak_edges.get(&node_id).unwrap_or(&Vec::default()));
         connections
     }
 
-    pub fn start_with(&mut self, node_index: NodeIndex) {
-        self.start_index = node_index;
+    pub fn next(
+        &self,
+        node_id: StoryNodeId,
+        story_world: &StoryWorld,
+        alias_map: &HashMap<Alias, EntityId>,
+    ) -> Vec<StoryNodeId> {
+        self.all_connections(node_id.0)
+            .into_iter()
+            .filter(|&index| {
+                let node = &self.graph[index];
+                node.are_world_constraints_satisfied(story_world)
+                    && node.are_relation_constraints_satisfied(story_world, alias_map)
+            })
+            .map(StoryNodeId)
+            .collect()
     }
 
-    pub fn add(&mut self, story_node: StoryNode) -> NodeIndex {
-        self.graph.add_node(story_node)
+    pub fn set_start_node(&mut self, node_id: StoryNodeId) {
+        self.start_id = node_id;
     }
 
-    pub fn connect(&mut self, from: NodeIndex, to: NodeIndex) -> Result<(), CycleDetected> {
+    pub fn add(&mut self, story_node: StoryNode) -> StoryNodeId {
+        let index = self.graph.add_node(story_node);
+        StoryNodeId(index)
+    }
+
+    pub fn connect(&mut self, from: StoryNodeId, to: StoryNodeId) -> Result<(), CycleDetected> {
         self.connect_weight(from, to, 0.0)
     }
 
     pub fn connect_weight(
         &mut self,
-        parent: NodeIndex,
-        child: NodeIndex,
+        parent: StoryNodeId,
+        child: StoryNodeId,
         weight: f64,
     ) -> Result<(), CycleDetected> {
-        let edge = self.graph.add_edge(parent, child, weight);
+        let edge = self.graph.add_edge(parent.0, child.0, weight);
         toposort(&self.graph, None).map(|_| ()).map_err(|_| {
             self.graph.remove_edge(edge);
             CycleDetected
@@ -99,11 +120,15 @@ impl StoryGraph {
     }
 
     // weak edges mean no inheritance in order to prevent cycles
-    pub fn connect_weak(&mut self, from: NodeIndex, to: NodeIndex) -> Result<(), CycleDetected> {
+    pub fn connect_weak(
+        &mut self,
+        from: StoryNodeId,
+        to: StoryNodeId,
+    ) -> Result<(), CycleDetected> {
         self.weak_edges
-            .entry(from)
+            .entry(from.0)
             .or_insert(Vec::default())
-            .push(to);
+            .push(to.0);
         Ok(())
     }
 
@@ -201,17 +226,18 @@ struct Node<'a> {
     pub is_leaf: bool,
 }
 
-fn collect_tree(node_id: NodeIndex, story_graph: &StoryGraph) -> Node {
+fn collect_tree(node_id: StoryNodeId, story_graph: &StoryGraph) -> Node {
     let mut node = Node {
         story: story_graph.get(node_id),
         children: vec![],
         is_leaf: false,
     };
 
-    node.is_leaf = story_graph.all_connections(node_id).is_empty();
+    node.is_leaf = story_graph.all_connections(node_id.0).is_empty();
 
-    for child_id in story_graph.connections(node_id) {
-        node.children.push(collect_tree(child_id, story_graph));
+    for child_id in story_graph.connections(node_id.0) {
+        node.children
+            .push(collect_tree(StoryNodeId(child_id), story_graph));
     }
 
     node
@@ -260,4 +286,193 @@ fn valid_alias_permutations(
     }
 
     final_valid_indices
+}
+
+#[cfg(test)]
+mod unit_tests {
+    use crate::prelude::{Constraint, Entity, StoryWorld};
+
+    use crate::{story_graph::StoryGraph, story_node::StoryNode};
+
+    fn player_meets_citizen_with_two_outcomes() -> StoryGraph {
+        let mut graph = StoryGraph::new();
+
+        graph.add_alias("player", [Constraint::has("protagonist")]);
+        graph.add_alias("citizen", []);
+
+        let start = graph.add(
+            StoryNode::new()
+                .with_description("player talks to a new citizen")
+                .with_relation_constraints(
+                    "player",
+                    "citizen",
+                    [Constraint::has_not("previously_met")],
+                )
+                .with_directive("add relation player citizen previously_met"),
+        );
+
+        graph.set_start_node(start);
+
+        let citizen_greeting = graph.add(
+            StoryNode::new()
+                .with_description("citizen greets player")
+                .with_directive(r#"citizen says "Long days and pleasant nights.""#),
+        );
+
+        let _ = graph.connect(start, citizen_greeting);
+
+        let ask_for_directions = graph.add(
+            StoryNode::new()
+                .with_description("player asks for directions")
+                .with_directive(r#"player says "Could you tell me where I could find...""#),
+        );
+
+        let _ = graph.connect(citizen_greeting, ask_for_directions);
+
+        let goodbye = graph.add(
+            StoryNode::new()
+                .with_description("player quits dialogue")
+                .with_directive(r#"player says "Goodbye, sai.""#),
+        );
+
+        let _ = graph.connect(citizen_greeting, goodbye);
+
+        graph
+    }
+
+    #[test]
+    fn graph_cycle() {
+        let mut graph = StoryGraph::new();
+
+        let a = graph.add(StoryNode::new());
+        let b = graph.add(StoryNode::new());
+        let c = graph.add(StoryNode::new());
+
+        let result = graph.connect(a, b);
+        assert!(result.is_ok());
+        let result = graph.connect(b, c);
+        assert!(result.is_ok());
+        let result = graph.connect(c, a);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn graph_cycle_weak() {
+        let mut graph = StoryGraph::new();
+
+        let a = graph.add(StoryNode::new());
+        let b = graph.add(StoryNode::new());
+        let c = graph.add(StoryNode::new());
+
+        let result = graph.connect(a, b);
+        assert!(result.is_ok());
+        let result = graph.connect(b, c);
+        assert!(result.is_ok());
+        let result = graph.connect_weak(c, a);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn traversing_a_graph_of_depth_2() {
+        let graph = player_meets_citizen_with_two_outcomes();
+
+        let mut node_index = graph.start().0;
+        let mut nodes_traversed = 0;
+        loop {
+            node_index = graph.connections(node_index)[0];
+            nodes_traversed += 1;
+            if graph.connections(node_index).is_empty() {
+                break;
+            }
+        }
+
+        assert_eq!(nodes_traversed, 2);
+    }
+
+    #[test]
+    fn a_graph_with_no_leaf_node_is_err() {
+        let mut graph = StoryGraph::new();
+        graph.add_alias("person", []);
+        let a = graph.add(StoryNode::new());
+        let b = graph.add(StoryNode::new());
+        // TODO: this particular case should be caught when building the graph
+        let _ = graph.connect(a, b);
+        let _ = graph.connect_weak(b, a);
+
+        let story_world = StoryWorld::new().with_entity(Entity::new(0));
+        let result = graph.alias_candidates(&story_world);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn a_graph_with_no_aliases_is_ok() {
+        let mut graph = StoryGraph::new();
+        let a = graph.add(StoryNode::new());
+        graph.set_start_node(a);
+
+        let story_world = StoryWorld::new().with_entity(Entity::new(0));
+        let result = graph.alias_candidates(&story_world);
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn a_graph_needs_at_least_one_reachable_leaf_node() {
+        let mut graph: StoryGraph = StoryGraph::new();
+        graph.add_alias("person", []);
+
+        let a = graph.add(StoryNode::new());
+        let b = graph.add(StoryNode::new());
+        graph.set_start_node(a);
+        let _ = graph.connect(a, b);
+
+        let story_world = StoryWorld::new().with_entity(Entity::new(0));
+        let result = graph.alias_candidates(&story_world);
+
+        assert!(result.is_ok());
+        let alias_permutations = result.unwrap();
+        assert_eq!(alias_permutations.len(), 1);
+    }
+
+    #[test]
+    fn a_graph_with_no_reachable_leaf_node_is_err() {
+        let mut graph: StoryGraph = StoryGraph::new();
+        graph.add_alias("person", []);
+
+        let a = graph.add(StoryNode::new());
+        let b =
+            graph.add(StoryNode::new().with_world_constraint(Constraint::has("some constraint")));
+        graph.set_start_node(a);
+        let _ = graph.connect(a, b);
+
+        let story_world = StoryWorld::new().with_entity(Entity::new(0));
+        let result = graph.alias_candidates(&story_world);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn single_alias_candidate_permutation_possible() {
+        const PROTAGONIST: usize = 0;
+        const NEW_CITIZEN: usize = 1;
+        const KNOWN_CITIZEN: usize = 2;
+        let story_world = StoryWorld::new()
+            .with_entities([
+                Entity::new(PROTAGONIST).with("protagonist", ""),
+                Entity::new(NEW_CITIZEN),
+                Entity::new(KNOWN_CITIZEN),
+            ])
+            .with_relation(PROTAGONIST, KNOWN_CITIZEN, "previously_met", "");
+
+        let graph = player_meets_citizen_with_two_outcomes();
+
+        let result = graph.alias_candidates(&story_world);
+        assert!(result.is_ok());
+        let permutations = result.unwrap();
+        assert_eq!(permutations.len(), 1);
+        let aliases = &permutations[0];
+        assert_eq!(aliases["player"], PROTAGONIST);
+        assert_eq!(aliases["citizen"], NEW_CITIZEN);
+    }
 }
