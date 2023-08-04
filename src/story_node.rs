@@ -1,4 +1,8 @@
-use std::{collections::HashMap, error::Error, fmt};
+use std::{
+    collections::{HashMap, HashSet},
+    error::Error,
+    fmt,
+};
 
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -52,18 +56,10 @@ impl ConstrainedAlias {
 }
 
 #[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct StoryConstraints {
-    pub aliases: Vec<ConstrainedAlias>,
-    pub relation_constraints: Vec<AliasRelation>,
-    pub world_constraints: Vec<Constraint>,
-}
-
-#[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct StoryNode {
     pub description: String,
-    pub constraints: StoryConstraints,
-    // TODO: Are those inherited constraints really required? Since we've already bound the parent aliases, the caller already knows them, therefore this node can use the aliases without declaring them. This would simply need added validation when building the node graph to make sure undeclared aliases exist upstream.
-    pub inherited_constraints: StoryConstraints,
+    pub relation_constraints: Vec<AliasRelation>,
+    pub world_constraints: Vec<Constraint>,
     pub directives: Vec<String>, // TODO, some DSL instead of just strings? maybe this approach https://github.com/clap-rs/clap/blob/053c778e986d99b4f53afdb666d9398e75d8d2fb/examples/repl.rs
 }
 
@@ -82,30 +78,18 @@ impl StoryNode {
         self
     }
 
-    pub fn with_alias_constraints<A, C>(mut self, alias: A, constraints: C) -> Self
-    where
-        A: Into<Alias>,
-        C: IntoIterator<Item = Constraint>,
-    {
-        self.constraints
-            .aliases
-            .push(ConstrainedAlias::new(alias, constraints));
-        self
-    }
-
     pub fn with_relation_constraints<A, C>(mut self, me: A, other: A, constraints: C) -> Self
     where
         A: Into<Alias>,
         C: IntoIterator<Item = Constraint>,
     {
-        self.constraints
-            .relation_constraints
+        self.relation_constraints
             .push(AliasRelation::new(me, other, constraints));
         self
     }
 
     pub fn with_world_constraint(mut self, constraint: Constraint) -> Self {
-        self.constraints.world_constraints.push(constraint);
+        self.world_constraints.push(constraint);
         self
     }
 
@@ -117,130 +101,35 @@ impl StoryNode {
         self
     }
 
-    pub(crate) fn try_matching_aliases(
-        &self,
-        story_world: &StoryWorld,
-    ) -> Result<Vec<AliasCandidates>, NotSatisfied> {
-        if !self.are_world_constraints_satisfied(story_world) {
-            return Err(NotSatisfied);
-        }
-
-        self.find_alias_candidates(story_world)
-    }
-
     pub fn are_world_constraints_satisfied(&self, story_world: &StoryWorld) -> bool {
-        self.constraints
-            .world_constraints
+        self.world_constraints
             .iter()
             .all(|constraint| constraint.is_satisfied_by(&story_world.properties))
     }
 
-    // Returns list of permutations of entity ids
-    // TODO: how to improve this? this is unreadable
-    pub fn find_alias_candidates(
+    pub fn are_relation_constraints_satisfied(
         &self,
         story_world: &StoryWorld,
-    ) -> Result<Vec<AliasCandidates>, NotSatisfied> {
-        if story_world.entities.len() < self.constraints.aliases.len() {
-            return Err(NotSatisfied);
-        }
+        alias_entities: &HashMap<Alias, EntityId>,
+    ) -> bool {
+        self.relation_constraints.iter().all(|relation| {
+            let me_id = if let Some(id) = alias_entities.get(&relation.me) {
+                *id
+            } else {
+                return false;
+            };
+            let other_id = if let Some(id) = alias_entities.get(&relation.other) {
+                *id
+            } else {
+                return false;
+            };
 
-        if self.constraints.aliases.is_empty() {
-            return Ok(Vec::default());
-        }
-
-        // get all valid entity indices for each alias
-        // first entry is for first alias in list, second for second alias etc.
-        let alias_candidate_indices = self
-            .constraints
-            .aliases
-            .iter()
-            .map(|constrained_alias| {
-                // produce list of valid entity indices
-                let valid_indices = story_world
-                    .entities
-                    .iter()
-                    .filter_map(|entity| {
-                        constrained_alias
-                            .is_satisfied_by(&entity.properties)
-                            .then_some(entity.id().0)
-                    })
-                    .collect_vec();
-                valid_indices
-            })
-            .collect_vec();
-
-        // produce all unique permutation of character indices for each alias
-        // To use itertools' cartesian product, must first populate the permutations vector once
-        // PERF: replace inner vec by Smallvec (which size? 5, 8, 20?)
-        let mut alias_permutations = Vec::<Vec<usize>>::default();
-        alias_candidate_indices[0]
-            .iter()
-            .for_each(|id| alias_permutations.push(vec![*id]));
-        for alias_candidates in alias_candidate_indices.iter().skip(1) {
-            let candidate_ids = alias_candidates;
-            alias_permutations = alias_permutations
-                .into_iter()
-                .cartesian_product(candidate_ids.iter().cloned())
-                .filter_map(|(mut ids, new_id)| {
-                    let is_unique = !ids.contains(&new_id);
-                    is_unique.then(|| {
-                        ids.push(new_id);
-                        ids
-                    })
-                })
-                .collect();
-        }
-        alias_permutations
-            .retain(|permutation| permutation.len() == self.constraints.aliases.len());
-
-        // long winded approach to getting ids
-        let get_id = |target_alias: &Alias, entity_ids: &Vec<usize>| {
-            let alias_index = self
-                .constraints
-                .aliases
-                .iter()
-                .enumerate()
-                .find(|(_, constrained_alias)| constrained_alias.alias() == target_alias)
-                .map(|(idx, _)| idx)
-                .unwrap();
-            entity_ids[alias_index]
-        };
-
-        let valid_permutations = alias_permutations
-            .into_iter()
-            .filter(|permutation_ids| {
-                self.constraints
-                    .relation_constraints
-                    .iter()
-                    .all(|relation| {
-                        let me_id = EntityId(get_id(&relation.me, permutation_ids));
-                        let other_id = EntityId(get_id(&relation.other, permutation_ids));
-
-                        let default_props = PropertyMap::default();
-                        let relation_properties = story_world
-                            .relations
-                            .get(&(me_id, other_id))
-                            .unwrap_or(&default_props);
-                        relation.is_satisfied_by(relation_properties)
-                    })
-            })
-            .map(|permutation| {
-                permutation
-                    .into_iter()
-                    .enumerate()
-                    .map(|(alias_index, entity_id)| {
-                        let alias = self.constraints.aliases[alias_index].alias.clone();
-                        (alias, entity_id)
-                    })
-                    .collect()
-            })
-            .collect_vec();
-
-        if valid_permutations.is_empty() {
-            Err(NotSatisfied)
-        } else {
-            Ok(valid_permutations)
-        }
+            let default_props = PropertyMap::default();
+            let relation_properties = story_world
+                .relations
+                .get(&(me_id, other_id))
+                .unwrap_or(&default_props);
+            relation.is_satisfied_by(relation_properties)
+        })
     }
 }

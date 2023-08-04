@@ -14,7 +14,7 @@ pub mod prelude {
         constraint::Constraint,
         entity::Entity,
         property::PropertyName,
-        raconteur::{Raconteur, StoryId},
+        raconteur::{Raconteur, StoryCandidate, StoryId},
         story_graph::StoryGraph,
         story_node::StoryNode,
         story_world::StoryWorld,

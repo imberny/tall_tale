@@ -33,20 +33,19 @@ impl StoryWorld {
         self
     }
 
-    pub fn with_relation<ID, N, P>(
+    pub fn with_relation<N, P>(
         mut self,
-        me: ID,
-        other: ID,
+        me: EntityId,
+        other: EntityId,
         property_name: N,
         property: P,
     ) -> Self
     where
-        ID: Into<usize>,
         N: Into<PropertyName>,
         P: Into<Property>,
     {
         self.relations
-            .entry((EntityId(me.into()), EntityId(other.into())))
+            .entry((me, other))
             .or_default()
             .insert(property_name.into(), property.into());
 

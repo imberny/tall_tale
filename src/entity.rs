@@ -1,26 +1,23 @@
 use crate::property::{Property, PropertyMap, PropertyName};
 
-#[derive(Hash, PartialEq, Eq, Clone, Copy)]
-pub struct EntityId(pub usize);
+// #[derive(Hash, PartialEq, Eq, Clone, Copy)]
+pub type EntityId = usize;
 
-impl From<usize> for EntityId {
-    fn from(value: usize) -> Self {
-        Self(value)
-    }
-}
+// impl From<usize> for EntityId {
+//     fn from(value: usize) -> Self {
+//         Self(value)
+//     }
+// }
 
 pub struct Entity {
-    id_: EntityId,
+    id: EntityId,
     pub properties: PropertyMap,
 }
 
 impl Entity {
-    pub fn new<I>(id: I) -> Self
-    where
-        I: Into<usize>,
-    {
+    pub fn new(id: usize) -> Self {
         Self {
-            id_: EntityId(id.into()),
+            id,
             properties: PropertyMap::default(),
         }
     }
@@ -36,6 +33,6 @@ impl Entity {
     }
 
     pub fn id(&self) -> EntityId {
-        self.id_
+        self.id
     }
 }
