@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod story_graph_tests {
     use raconteur::prelude::{
-        Constraint, Entity, Raconteur, StoryCandidate, StoryGraph, StoryNode, StoryWorld,
+        Constraint, Context, Entity, Raconteur, StoryCandidate, StoryGraph, StoryNode,
     };
     use ron::ser::PrettyConfig;
 
@@ -111,7 +111,7 @@ mod story_graph_tests {
 
         raconteur.insert(graph);
 
-        let story_world = StoryWorld::new()
+        let context = Context::new()
             .with_world_property("location type", "city")
             .with_entities([
                 Entity::new(0)
@@ -151,7 +151,7 @@ mod story_graph_tests {
             .with_relation(0, 4, "knows", "")
             .with_relation(4, 7, "parent", "");
 
-        let result = raconteur.query(&story_world);
+        let result = raconteur.query(&context);
 
         assert!(!result.is_empty());
         let StoryCandidate {
@@ -164,11 +164,8 @@ mod story_graph_tests {
         let story_graph = raconteur.get(*id);
         for alias_map in alias_candidates {
             let mut node_id = story_graph.start();
-            while !story_graph
-                .next(node_id, &story_world, alias_map)
-                .is_empty()
-            {
-                node_id = story_graph.next(node_id, &story_world, alias_map)[0];
+            while !story_graph.next(node_id, &context, alias_map).is_empty() {
+                node_id = story_graph.next(node_id, &context, alias_map)[0];
             }
         }
 

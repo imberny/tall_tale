@@ -14,7 +14,7 @@ use std::{
 
 use crate::{
     entity::EntityId,
-    prelude::{Constraint, StoryWorld},
+    prelude::{Constraint, Context},
     story_node::{Alias, ConstrainedAlias, StoryNode},
 };
 
@@ -115,15 +115,15 @@ impl StoryGraph {
     pub fn next(
         &self,
         node_id: StoryNodeId,
-        story_world: &StoryWorld,
+        context: &Context,
         alias_map: &AliasMap,
     ) -> Vec<StoryNodeId> {
         self.all_connections(node_id.into())
             .into_iter()
             .filter(|&index| {
                 let node = &self.graph[index];
-                node.are_world_constraints_satisfied(story_world)
-                    && node.are_relation_constraints_satisfied(story_world, alias_map)
+                node.are_world_constraints_satisfied(context)
+                    && node.are_relation_constraints_satisfied(context, alias_map)
             })
             .map(StoryNodeId::from)
             .collect()
@@ -169,14 +169,14 @@ impl StoryGraph {
 
     pub fn alias_candidates(
         &self,
-        story_world: &StoryWorld,
+        context: &Context,
     ) -> Result<Vec<AliasMap>, ConstraintsNotSatisfied> {
         if self.aliases.is_empty() {
             return Ok(vec![]);
         }
 
         // assert at least one valid alias permutation
-        let permutations = self.alias_permutations(story_world);
+        let permutations = self.alias_permutations(context);
 
         if permutations.is_empty() {
             return Err(ConstraintsNotSatisfied);
@@ -185,7 +185,7 @@ impl StoryGraph {
         let node = collect_tree(self.start(), self);
         let permutation_indices = HashSet::from_iter(0..permutations.len());
         let valid_permutation_indices =
-            valid_alias_permutations(&node, story_world, &permutations, &permutation_indices);
+            valid_alias_permutations(&node, context, &permutations, &permutation_indices);
 
         let valid_permutations = permutations
             .into_iter()
@@ -205,12 +205,12 @@ impl StoryGraph {
 
     // return list of possible alias permutations
     // Doesn't validate relation constraints, a those can vary from node to node and thus affect which choices are available
-    fn alias_permutations(&self, story_world: &StoryWorld) -> Vec<AliasMap> {
+    fn alias_permutations(&self, context: &Context) -> Vec<AliasMap> {
         let alias_candidates: HashMap<_, _> = self
             .aliases
             .iter()
             .map(|constrained_alias| {
-                let valid_entities = story_world
+                let valid_entities = context
                     .entities
                     .iter()
                     .filter(|entity| constrained_alias.is_satisfied_by(&entity.properties))
@@ -281,11 +281,11 @@ fn collect_tree(node_id: StoryNodeId, story_graph: &StoryGraph) -> Node {
 // returns list of indices of valid bindings
 fn valid_alias_permutations(
     node: &Node,
-    story_world: &StoryWorld,
+    context: &Context,
     alias_binding_permutations: &[AliasMap],
     parent_valid_indices: &HashSet<usize>,
 ) -> HashSet<usize> {
-    if !node.story.are_world_constraints_satisfied(story_world) {
+    if !node.story.are_world_constraints_satisfied(context) {
         return HashSet::default();
     }
 
@@ -296,7 +296,7 @@ fn valid_alias_permutations(
             parent_valid_indices.contains(index)
                 && node
                     .story
-                    .are_relation_constraints_satisfied(story_world, permutation)
+                    .are_relation_constraints_satisfied(context, permutation)
         })
         .map(|(index, _)| index)
         .collect();
@@ -313,7 +313,7 @@ fn valid_alias_permutations(
     for child_node in &node.children {
         let child_valid_indices = valid_alias_permutations(
             child_node,
-            story_world,
+            context,
             alias_binding_permutations,
             &valid_indices,
         );
@@ -325,7 +325,7 @@ fn valid_alias_permutations(
 
 #[cfg(test)]
 mod unit_tests {
-    use crate::prelude::{Constraint, Entity, StoryWorld};
+    use crate::prelude::{Constraint, Context, Entity};
 
     use crate::{story_graph::StoryGraph, story_node::StoryNode};
 
@@ -434,8 +434,8 @@ mod unit_tests {
         let _ = graph.connect(a, b);
         let _ = graph.connect_weak(b, a);
 
-        let story_world = StoryWorld::new().with_entity(Entity::new(0));
-        let result = graph.alias_candidates(&story_world);
+        let context = Context::new().with_entity(Entity::new(0));
+        let result = graph.alias_candidates(&context);
 
         assert!(result.is_err());
     }
@@ -446,8 +446,8 @@ mod unit_tests {
         let a = graph.add(StoryNode::new());
         graph.set_start_node(a);
 
-        let story_world = StoryWorld::new().with_entity(Entity::new(0));
-        let result = graph.alias_candidates(&story_world);
+        let context = Context::new().with_entity(Entity::new(0));
+        let result = graph.alias_candidates(&context);
 
         assert!(result.is_ok());
     }
@@ -462,8 +462,8 @@ mod unit_tests {
         graph.set_start_node(a);
         let _ = graph.connect(a, b);
 
-        let story_world = StoryWorld::new().with_entity(Entity::new(0));
-        let result = graph.alias_candidates(&story_world);
+        let context = Context::new().with_entity(Entity::new(0));
+        let result = graph.alias_candidates(&context);
 
         assert!(result.is_ok());
         let alias_permutations = result.unwrap();
@@ -481,8 +481,8 @@ mod unit_tests {
         graph.set_start_node(a);
         let _ = graph.connect(a, b);
 
-        let story_world = StoryWorld::new().with_entity(Entity::new(0));
-        let result = graph.alias_candidates(&story_world);
+        let context = Context::new().with_entity(Entity::new(0));
+        let result = graph.alias_candidates(&context);
 
         assert!(result.is_err());
     }
@@ -492,7 +492,7 @@ mod unit_tests {
         const PROTAGONIST: usize = 0;
         const NEW_CITIZEN: usize = 1;
         const KNOWN_CITIZEN: usize = 2;
-        let story_world = StoryWorld::new()
+        let context = Context::new()
             .with_entities([
                 Entity::new(PROTAGONIST).with("protagonist", ""),
                 Entity::new(NEW_CITIZEN),
@@ -502,7 +502,7 @@ mod unit_tests {
 
         let graph = player_meets_citizen_with_two_outcomes();
 
-        let result = graph.alias_candidates(&story_world);
+        let result = graph.alias_candidates(&context);
         assert!(result.is_ok());
         let permutations = result.unwrap();
         assert_eq!(permutations.len(), 1);

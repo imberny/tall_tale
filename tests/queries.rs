@@ -6,8 +6,8 @@ mod query_tests {
     const GUY_ID: usize = 0;
     const GIRL_ID: usize = 1;
 
-    fn query() -> StoryWorld {
-        StoryWorld::new()
+    fn query() -> Context {
+        Context::new()
             .with_entities([
                 Entity::new(GUY_ID).with("name", "Bertrand").with("age", 30),
                 Entity::new(GIRL_ID)
@@ -145,7 +145,7 @@ mod query_tests {
             graph
         });
 
-        let query_player_wealthy = StoryWorld::new()
+        let query_player_wealthy = Context::new()
             .with_entities([
                 Entity::new(PLAYER_ID)
                     .with("player", "")
@@ -166,7 +166,7 @@ mod query_tests {
         assert_eq!(aliases["player"], PLAYER_ID);
         assert_eq!(aliases["baking_man"], BAKER_ID);
 
-        let query_player_poor = StoryWorld::new()
+        let query_player_poor = Context::new()
             .with_entities([
                 Entity::new(PLAYER_ID).with("player", "").with("money", 0.0),
                 Entity::new(BAKER_ID)
@@ -185,7 +185,7 @@ mod query_tests {
         assert_eq!(aliases["player"], PLAYER_ID);
         assert_eq!(aliases["baking_man"], BAKER_ID);
 
-        let query_player_average_wealth = StoryWorld::new()
+        let query_player_average_wealth = Context::new()
             .with_entities([
                 Entity::new(PLAYER_ID)
                     .with("player", "")

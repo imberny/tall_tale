@@ -1,8 +1,8 @@
 use itertools::Itertools;
 
 use crate::{
+    context::Context,
     story_graph::{AliasMap, StoryGraph},
-    story_world::StoryWorld,
 };
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy)]
@@ -28,15 +28,15 @@ impl Raconteur {
         self.stories.push(story_graph);
     }
 
-    pub fn query(&self, story_world: &StoryWorld) -> Vec<StoryCandidate> {
+    pub fn query(&self, context: &Context) -> Vec<StoryCandidate> {
         // go through list of story beats, discarding those whose constraints aren't satisfied
 
         self.stories
             .iter()
             .enumerate()
-            .filter(|&(index, _)| story_world.is_included(&StoryId(index)))
+            .filter(|&(index, _)| context.is_included(&StoryId(index)))
             .filter_map(|(story_idx, story_graph)| {
-                let result = story_graph.alias_candidates(story_world);
+                let result = story_graph.alias_candidates(context);
 
                 result.ok().map(|alias_candidates| StoryCandidate {
                     id: StoryId(story_idx),
@@ -53,7 +53,7 @@ impl Raconteur {
 
 #[cfg(test)]
 mod unit_tests {
-    use crate::prelude::{StoryGraph, StoryNode, StoryWorld};
+    use crate::prelude::{Context, StoryGraph, StoryNode};
 
     use super::Raconteur;
 
@@ -67,12 +67,12 @@ mod unit_tests {
             graph
         });
 
-        let mut story_world = StoryWorld::new();
+        let mut context = Context::new();
 
-        let stories = raconteur.query(&story_world);
+        let stories = raconteur.query(&context);
         assert!(!stories.is_empty());
-        story_world.exclude(&[stories[0].id]);
-        let stories = raconteur.query(&story_world);
+        context.exclude(&[stories[0].id]);
+        let stories = raconteur.query(&context);
         assert!(stories.is_empty());
     }
 }

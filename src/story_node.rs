@@ -4,9 +4,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     constraint::{AliasRelation, Constraint},
+    context::Context,
     property::{PropertyMap, PropertyName},
     story_graph::AliasMap,
-    story_world::StoryWorld,
 };
 
 pub type Alias = String;
@@ -95,15 +95,15 @@ impl StoryNode {
         self
     }
 
-    pub(crate) fn are_world_constraints_satisfied(&self, story_world: &StoryWorld) -> bool {
+    pub(crate) fn are_world_constraints_satisfied(&self, context: &Context) -> bool {
         self.world_constraints
             .iter()
-            .all(|constraint| constraint.is_satisfied_by(&story_world.properties))
+            .all(|constraint| constraint.is_satisfied_by(&context.properties))
     }
 
     pub(crate) fn are_relation_constraints_satisfied(
         &self,
-        story_world: &StoryWorld,
+        context: &Context,
         alias_entities: &AliasMap,
     ) -> bool {
         self.relation_constraints.iter().all(|relation| {
@@ -119,7 +119,7 @@ impl StoryNode {
             };
 
             let default_props = PropertyMap::default();
-            let relation_properties = story_world
+            let relation_properties = context
                 .relations
                 .get(&(me_id, other_id))
                 .unwrap_or(&default_props);

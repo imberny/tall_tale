@@ -10,14 +10,14 @@ use crate::{
 type RelationMap = HashMap<(EntityId, EntityId), PropertyMap>;
 
 #[derive(Default)]
-pub struct StoryWorld {
+pub struct Context {
     pub(crate) entities: Vec<Entity>, // characters, items, locations ... matched against alias_constraints
     pub(crate) relations: RelationMap,
     pub(crate) properties: PropertyMap, // miscellanious world variables, matched agains world_constraints
     pub(crate) exclude: HashSet<StoryId>,
 }
 
-impl StoryWorld {
+impl Context {
     pub fn new() -> Self {
         Self::default()
     }
