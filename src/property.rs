@@ -7,7 +7,7 @@ use crate::{Float, Integer};
 pub type PropertyName = String;
 pub type PropertyMap = HashMap<PropertyName, Property>;
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum Property {
     String(String),
     Int(Integer),

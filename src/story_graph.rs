@@ -1,8 +1,10 @@
 use itertools::Itertools;
+
 use petgraph::{
     algo::toposort,
     prelude::{Graph, NodeIndex},
 };
+use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
@@ -55,11 +57,22 @@ impl fmt::Display for ConstraintsNotSatisfied {
 }
 impl Error for ConstraintsNotSatisfied {}
 
-#[derive(Default, Clone, Copy)]
-pub struct StoryNodeId(NodeIndex);
+#[derive(Default, Serialize, Deserialize, Clone, Copy)]
+pub struct StoryNodeId(usize);
 
-// #[derive(Serialize, Deserialize)]
-#[derive(Default)]
+impl From<NodeIndex> for StoryNodeId {
+    fn from(value: NodeIndex) -> Self {
+        StoryNodeId(value.index())
+    }
+}
+
+impl From<StoryNodeId> for NodeIndex {
+    fn from(value: StoryNodeId) -> Self {
+        NodeIndex::new(value.0)
+    }
+}
+
+#[derive(Default, Serialize, Deserialize)]
 pub struct StoryGraph {
     aliases: Vec<ConstrainedAlias>,
     start_id: StoryNodeId,
@@ -85,7 +98,7 @@ impl StoryGraph {
     }
 
     pub fn get(&self, node_id: StoryNodeId) -> &StoryNode {
-        &self.graph[node_id.0]
+        &self.graph[NodeIndex::from(node_id)]
     }
 
     pub(crate) fn connections(&self, node_id: NodeIndex) -> Vec<NodeIndex> {
@@ -94,6 +107,7 @@ impl StoryGraph {
 
     pub(crate) fn all_connections(&self, node_id: NodeIndex) -> Vec<NodeIndex> {
         let mut connections = self.graph.neighbors(node_id).collect_vec();
+
         connections.extend(self.weak_edges.get(&node_id).unwrap_or(&Vec::default()));
         connections
     }
@@ -104,14 +118,14 @@ impl StoryGraph {
         story_world: &StoryWorld,
         alias_map: &AliasMap,
     ) -> Vec<StoryNodeId> {
-        self.all_connections(node_id.0)
+        self.all_connections(node_id.into())
             .into_iter()
             .filter(|&index| {
                 let node = &self.graph[index];
                 node.are_world_constraints_satisfied(story_world)
                     && node.are_relation_constraints_satisfied(story_world, alias_map)
             })
-            .map(StoryNodeId)
+            .map(StoryNodeId::from)
             .collect()
     }
 
@@ -120,8 +134,7 @@ impl StoryGraph {
     }
 
     pub fn add(&mut self, story_node: StoryNode) -> StoryNodeId {
-        let index = self.graph.add_node(story_node);
-        StoryNodeId(index)
+        self.graph.add_node(story_node).into()
     }
 
     pub fn connect(&mut self, from: StoryNodeId, to: StoryNodeId) -> Result<(), CycleDetected> {
@@ -134,7 +147,7 @@ impl StoryGraph {
         child: StoryNodeId,
         weight: f64,
     ) -> Result<(), CycleDetected> {
-        let edge = self.graph.add_edge(parent.0, child.0, weight);
+        let edge = self.graph.add_edge(parent.into(), child.into(), weight);
         toposort(&self.graph, None).map(|_| ()).map_err(|_| {
             self.graph.remove_edge(edge);
             CycleDetected
@@ -148,9 +161,9 @@ impl StoryGraph {
         to: StoryNodeId,
     ) -> Result<(), CycleDetected> {
         self.weak_edges
-            .entry(from.0)
+            .entry(from.into())
             .or_insert(Vec::default())
-            .push(to.0);
+            .push(to.into());
         Ok(())
     }
 
@@ -255,11 +268,11 @@ fn collect_tree(node_id: StoryNodeId, story_graph: &StoryGraph) -> Node {
         is_leaf: false,
     };
 
-    node.is_leaf = story_graph.all_connections(node_id.0).is_empty();
+    node.is_leaf = story_graph.all_connections(node_id.into()).is_empty();
 
-    for child_id in story_graph.connections(node_id.0) {
+    for child_id in story_graph.connections(node_id.into()) {
         node.children
-            .push(collect_tree(StoryNodeId(child_id), story_graph));
+            .push(collect_tree(child_id.into(), story_graph));
     }
 
     node
@@ -398,7 +411,7 @@ mod unit_tests {
     fn traversing_a_graph_of_depth_2() {
         let graph = player_meets_citizen_with_two_outcomes();
 
-        let mut node_index = graph.start().0;
+        let mut node_index = graph.start().into();
         let mut nodes_traversed = 0;
         loop {
             node_index = graph.connections(node_index)[0];

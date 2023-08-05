@@ -20,7 +20,7 @@ impl fmt::Display for NotSatisfied {
 }
 impl Error for NotSatisfied {}
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub(crate) struct ConstrainedAlias {
     alias: Alias,
     constraints: Vec<Constraint>,
@@ -49,7 +49,7 @@ impl ConstrainedAlias {
     }
 }
 
-#[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize, Debug, PartialEq)]
 pub struct StoryNode {
     pub description: String,
     pub relation_constraints: Vec<AliasRelation>,

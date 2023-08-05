@@ -3,6 +3,7 @@ mod story_graph_tests {
     use raconteur::prelude::{
         Constraint, Entity, Raconteur, StoryCandidate, StoryGraph, StoryNode, StoryWorld,
     };
+    use ron::ser::PrettyConfig;
 
     #[test]
     fn complex_graph() {
@@ -170,5 +171,8 @@ mod story_graph_tests {
                 node_id = story_graph.next(node_id, &story_world, alias_map)[0];
             }
         }
+
+        let s = ron::ser::to_string_pretty(story_graph, PrettyConfig::default()).unwrap();
+        println!("{}", s);
     }
 }
