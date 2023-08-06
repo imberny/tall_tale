@@ -35,4 +35,11 @@ impl Entity {
     pub fn id(&self) -> EntityId {
         self.id
     }
+
+    pub fn get<P>(&self, property: P) -> Option<&Property>
+    where
+        P: Into<PropertyName>,
+    {
+        self.properties.get(&property.into())
+    }
 }

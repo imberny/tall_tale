@@ -11,7 +11,7 @@ type RelationMap = HashMap<(EntityId, EntityId), PropertyMap>;
 
 #[derive(Default)]
 pub struct Context {
-    pub(crate) entities: Vec<Entity>, // characters, items, locations ... matched against alias_constraints
+    entities: HashMap<EntityId, Entity>, // characters, items, locations ... matched against alias_constraints
     pub(crate) relations: RelationMap,
     pub(crate) properties: PropertyMap, // miscellanious world variables, matched agains world_constraints
     pub(crate) exclude: HashSet<StoryId>,
@@ -23,12 +23,13 @@ impl Context {
     }
 
     pub fn with_entity(mut self, entity: Entity) -> Self {
-        self.entities.push(entity);
+        self.entities.insert(entity.id(), entity);
         self
     }
 
     pub fn with_entities(mut self, entities: impl IntoIterator<Item = Entity>) -> Self {
-        self.entities.extend(entities);
+        self.entities
+            .extend(entities.into_iter().map(|entity| (entity.id(), entity)));
         self
     }
 
@@ -67,5 +68,17 @@ impl Context {
 
     pub fn is_included(&self, story_id: &StoryId) -> bool {
         !self.exclude.contains(story_id)
+    }
+
+    pub fn entity(&self, id: EntityId) -> Option<&Entity> {
+        self.entities.get(&id)
+    }
+
+    pub fn entities(&self) -> impl Iterator<Item = &Entity> {
+        self.entities.values()
+    }
+
+    pub fn world_property(&self, property_name: &str) -> Option<&Property> {
+        self.properties.get(property_name)
     }
 }

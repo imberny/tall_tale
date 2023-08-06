@@ -22,7 +22,7 @@ use crate::{
 pub struct AliasMap(HashMap<Alias, EntityId>);
 
 impl AliasMap {
-    fn associate(&mut self, alias: Alias, entity: EntityId) {
+    pub(crate) fn associate(&mut self, alias: Alias, entity: EntityId) {
         self.0.insert(alias, entity);
     }
 
@@ -56,6 +56,23 @@ impl fmt::Display for ConstraintsNotSatisfied {
     }
 }
 impl Error for ConstraintsNotSatisfied {}
+
+#[derive(Debug)]
+pub struct AliasError(String);
+impl AliasError {
+    pub(crate) fn new<S>(message: S) -> Self
+    where
+        S: Into<String>,
+    {
+        Self(message.into())
+    }
+}
+impl fmt::Display for AliasError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Alias error: {}", self.0)
+    }
+}
+impl Error for AliasError {}
 
 #[derive(Default, Serialize, Deserialize, Clone, Copy)]
 pub struct StoryNodeId(usize);
@@ -211,8 +228,7 @@ impl StoryGraph {
             .iter()
             .map(|constrained_alias| {
                 let valid_entities = context
-                    .entities
-                    .iter()
+                    .entities()
                     .filter(|entity| constrained_alias.is_satisfied_by(&entity.properties))
                     .map(|entity| entity.id())
                     .collect_vec();
