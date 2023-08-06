@@ -4,6 +4,7 @@ use std::{
 };
 
 use itertools::Itertools;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -13,11 +14,6 @@ use crate::{
     property::{PropertyMap, PropertyName},
     story_graph::{AliasError, AliasMap},
 };
-
-pub const PATTERN_RE: &str = r"\{(?P<path>[<>[:word:]\.]+)\}";
-pub const ENTITY_ALIAS_RE: &str = r"<a>(?P<alias>[[:word:]]+)";
-pub const ALIAS_PROPERTY_RE: &str = r"(?P<alias>[[:word:]]+)\.(?P<property_name>[[:word:]]+)";
-pub const WORLD_PROPERTY_RE: &str = r"(?P<property_name>[[:word:]]+)";
 
 pub type Alias = String;
 
@@ -105,79 +101,6 @@ impl StoryNode {
         self
     }
 
-    pub fn directive(&self, alias_map: &AliasMap, context: &Context) -> Result<String, AliasError> {
-        let patterns_re = Regex::new(PATTERN_RE).unwrap();
-        let entity_alias_re = Regex::new(ENTITY_ALIAS_RE).unwrap();
-        let alias_property_re = Regex::new(ALIAS_PROPERTY_RE).unwrap();
-        let world_property_re = Regex::new(WORLD_PROPERTY_RE).unwrap();
-
-        let mut result_directive = String::new();
-
-        let parts: Vec<&str> = patterns_re.split(&self.directive).collect_vec();
-        let matches = patterns_re.captures_iter(&self.directive).collect_vec();
-        for i in 0..matches.len() {
-            write!(&mut result_directive, "{}", parts[i]).unwrap();
-            let pattern = &matches[i]["path"];
-
-            let unaliased_text: Result<_, _>;
-            if let Some(cap) = entity_alias_re.captures(pattern) {
-                let alias = &cap["alias"];
-                unaliased_text = alias_map
-                    .get(alias)
-                    .ok_or(AliasError::new(format!(r#"missing alias "{}""#, alias)))
-                    .map(|entity_id: usize| entity_id.to_string());
-            } else if alias_property_re.is_match(pattern) {
-                let alias_prop_capture = alias_property_re.captures(pattern).unwrap();
-                let alias = &alias_prop_capture["alias"];
-                let property_name = &alias_prop_capture["property_name"];
-                unaliased_text = alias_map
-                    .get(alias)
-                    .ok_or(AliasError::new(format!(r#"missing alias "{}""#, alias)))
-                    .and_then(|entity_id| {
-                        context
-                            .entity(entity_id)
-                            .ok_or(AliasError::new(format!(
-                                r#"Entity "{}" bound to "{}" is missing"#,
-                                entity_id, alias
-                            )))
-                            .and_then(|entity| {
-                                entity
-                                    .get(property_name)
-                                    .ok_or(AliasError::new(format!(
-                                        r#"Entity "{}" bound to "{}" is missing the property "{}""#,
-                                        entity_id, alias, property_name
-                                    )))
-                                    .map(|property| property.to_string())
-                            })
-                    });
-            } else if world_property_re.is_match(pattern) {
-                let world_prop_capture = world_property_re.captures(pattern).unwrap();
-                let property_name = &world_prop_capture["property_name"];
-                unaliased_text = context
-                    .world_property(property_name)
-                    .ok_or(AliasError::new(format!(
-                        r#"Missing world property "{}""#,
-                        property_name
-                    )))
-                    .map(|property| property.to_string());
-            } else {
-                return Err(AliasError::new(format!(
-                    r#"Malformed property path "{}""#,
-                    pattern
-                )));
-            }
-
-            match unaliased_text {
-                Ok(property) => write!(&mut result_directive, "{}", property).unwrap(),
-                Err(err) => return Err(err),
-            };
-        }
-        if parts.len() > matches.len() {
-            write!(&mut result_directive, "{}", parts[matches.len()]).unwrap();
-        }
-        Ok(result_directive)
-    }
-
     pub(crate) fn are_world_constraints_satisfied(&self, context: &Context) -> bool {
         self.world_constraints
             .iter()
@@ -208,6 +131,79 @@ impl StoryNode {
                 .unwrap_or(&default_props);
             relation.is_satisfied_by(relation_properties)
         })
+    }
+
+    pub fn directive(&self, alias_map: &AliasMap, context: &Context) -> Result<String, AliasError> {
+        static PATTERNS_RE: Lazy<Regex> =
+            Lazy::new(|| Regex::new(r"\{([<>[:word:]\.]+)\}").unwrap());
+        static ALIAS_RE: Lazy<Regex> = Lazy::new(|| Regex::new("<a>([[:word:]]+)").unwrap());
+        static ALIAS_PROP_RE: Lazy<Regex> =
+            Lazy::new(|| Regex::new("([[:word:]]+)\\.(?P<property_name>[[:word:]]+)").unwrap());
+        static WORLD_PROP_RE: Lazy<Regex> = Lazy::new(|| Regex::new("([[:word:]]+)").unwrap());
+
+        let mut result_directive = String::new();
+
+        let parts: Vec<&str> = PATTERNS_RE.split(&self.directive).collect_vec();
+        let matches = PATTERNS_RE.captures_iter(&self.directive).collect_vec();
+        for i in 0..matches.len() {
+            write!(&mut result_directive, "{}", parts[i]).unwrap();
+            let pattern = &matches[i][1];
+
+            let unaliased_text: Result<_, _>;
+            if let Some(cap) = ALIAS_RE.captures(pattern) {
+                let alias = &cap[1];
+                unaliased_text = alias_map
+                    .get(alias)
+                    .ok_or(AliasError::new(format!(r#"missing alias "{}""#, alias)))
+                    .map(|entity_id: usize| entity_id.to_string());
+            } else if let Some(cap) = ALIAS_PROP_RE.captures(pattern) {
+                let alias = &cap[1];
+                let property_name = &cap[2];
+                unaliased_text = alias_map
+                    .get(alias)
+                    .ok_or(AliasError::new(format!(r#"missing alias "{}""#, alias)))
+                    .and_then(|entity_id| {
+                        context
+                            .entity(entity_id)
+                            .ok_or(AliasError::new(format!(
+                                r#"Entity "{}" bound to "{}" is missing"#,
+                                entity_id, alias
+                            )))
+                            .and_then(|entity| {
+                                entity
+                                    .get(property_name)
+                                    .ok_or(AliasError::new(format!(
+                                        r#"Entity "{}" bound to "{}" is missing the property "{}""#,
+                                        entity_id, alias, property_name
+                                    )))
+                                    .map(|property| property.to_string())
+                            })
+                    });
+            } else if let Some(cap) = WORLD_PROP_RE.captures(pattern) {
+                let property_name = &cap[1];
+                unaliased_text = context
+                    .world_property(property_name)
+                    .ok_or(AliasError::new(format!(
+                        r#"Missing world property "{}""#,
+                        property_name
+                    )))
+                    .map(|property| property.to_string());
+            } else {
+                return Err(AliasError::new(format!(
+                    r#"Malformed property path "{}""#,
+                    pattern
+                )));
+            }
+
+            match unaliased_text {
+                Ok(property) => write!(&mut result_directive, "{}", property).unwrap(),
+                Err(err) => return Err(err),
+            };
+        }
+        if parts.len() > matches.len() {
+            write!(&mut result_directive, "{}", parts[matches.len()]).unwrap();
+        }
+        Ok(result_directive)
     }
 }
 

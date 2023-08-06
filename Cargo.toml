@@ -10,6 +10,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 itertools = "0.11.0"
+once_cell = "1.18.0"
 petgraph = { version = "0.6.3", features = ["serde-1"] }
 regex = "1.9.3"
 ron = "0.8.0"
