@@ -174,7 +174,7 @@ impl StoryNode {
     pub(crate) fn are_world_constraints_satisfied(&self, context: &Context) -> bool {
         self.world_constraints
             .iter()
-            .all(|constraint| constraint.is_satisfied_by(&context.properties))
+            .all(|constraint| constraint.is_satisfied_by(context.properties()))
     }
 
     pub(crate) fn are_relation_constraints_satisfied(
@@ -196,7 +196,7 @@ impl StoryNode {
 
             let default_props = PropertyMap::default();
             let relation_properties = context
-                .relations
+                .relations()
                 .get(&(me_id, other_id))
                 .unwrap_or(&default_props);
             relation.is_satisfied_by(relation_properties)

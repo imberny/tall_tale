@@ -12,9 +12,9 @@ type RelationMap = HashMap<(EntityId, EntityId), PropertyMap>;
 #[derive(Default)]
 pub struct Context {
     entities: HashMap<EntityId, Entity>, // characters, items, locations ... matched against alias_constraints
-    pub(crate) relations: RelationMap,
-    pub(crate) properties: PropertyMap, // miscellanious world variables, matched agains world_constraints
-    pub(crate) exclude: HashSet<StoryId>,
+    relations: RelationMap,
+    properties: PropertyMap, // miscellanious world variables, matched agains world_constraints
+    exclude: HashSet<StoryId>,
 }
 
 impl Context {
@@ -66,19 +66,27 @@ impl Context {
         self.exclude.extend(story_ids);
     }
 
-    pub fn is_included(&self, story_id: &StoryId) -> bool {
+    pub(crate) fn is_included(&self, story_id: &StoryId) -> bool {
         !self.exclude.contains(story_id)
     }
 
-    pub fn entity(&self, id: EntityId) -> Option<&Entity> {
+    pub(crate) fn entity(&self, id: EntityId) -> Option<&Entity> {
         self.entities.get(&id)
     }
 
-    pub fn entities(&self) -> impl Iterator<Item = &Entity> {
+    pub(crate) fn entities(&self) -> impl Iterator<Item = &Entity> {
         self.entities.values()
     }
 
-    pub fn world_property(&self, property_name: &str) -> Option<&Property> {
+    pub(crate) fn world_property(&self, property_name: &str) -> Option<&Property> {
         self.properties.get(property_name)
+    }
+
+    pub(crate) fn properties(&self) -> &PropertyMap {
+        &self.properties
+    }
+
+    pub(crate) fn relations(&self) -> &RelationMap {
+        &self.relations
     }
 }
