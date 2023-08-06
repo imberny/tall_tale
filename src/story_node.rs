@@ -14,7 +14,8 @@ use crate::{
     story_graph::{AliasError, AliasMap},
 };
 
-pub const PROPERTY_RE: &str = r"\{(?P<path>[[:word:]\.]+)\}";
+pub const PATTERN_RE: &str = r"\{(?P<path>[<>[:word:]\.]+)\}";
+pub const ENTITY_ALIAS_RE: &str = r"<a>(?P<alias>[[:word:]]+)";
 pub const ALIAS_PROPERTY_RE: &str = r"(?P<alias>[[:word:]]+)\.(?P<property_name>[[:word:]]+)";
 pub const WORLD_PROPERTY_RE: &str = r"(?P<property_name>[[:word:]]+)";
 
@@ -105,25 +106,31 @@ impl StoryNode {
     }
 
     pub fn directive(&self, alias_map: &AliasMap, context: &Context) -> Result<String, AliasError> {
-        let properties_re = Regex::new(PROPERTY_RE).unwrap();
+        let patterns_re = Regex::new(PATTERN_RE).unwrap();
+        let entity_alias_re = Regex::new(ENTITY_ALIAS_RE).unwrap();
         let alias_property_re = Regex::new(ALIAS_PROPERTY_RE).unwrap();
         let world_property_re = Regex::new(WORLD_PROPERTY_RE).unwrap();
 
         let mut result_directive = String::new();
 
-        let parts: Vec<&str> = properties_re.split(&self.directive).collect_vec();
-        let captures = properties_re.captures_iter(&self.directive).collect_vec();
-        for i in 0..captures.len() {
+        let parts: Vec<&str> = patterns_re.split(&self.directive).collect_vec();
+        let matches = patterns_re.captures_iter(&self.directive).collect_vec();
+        for i in 0..matches.len() {
             write!(&mut result_directive, "{}", parts[i]).unwrap();
-            let captured_property = &captures[i];
-            let property_path = &captured_property["path"];
+            let pattern = &matches[i]["path"];
 
-            let unaliased_property: Result<_, _>;
-            if alias_property_re.is_match(property_path) {
-                let alias_prop_capture = alias_property_re.captures(property_path).unwrap();
+            let unaliased_text: Result<_, _>;
+            if let Some(cap) = entity_alias_re.captures(pattern) {
+                let alias = &cap["alias"];
+                unaliased_text = alias_map
+                    .get(alias)
+                    .ok_or(AliasError::new(format!(r#"missing alias "{}""#, alias)))
+                    .map(|entity_id: usize| entity_id.to_string());
+            } else if alias_property_re.is_match(pattern) {
+                let alias_prop_capture = alias_property_re.captures(pattern).unwrap();
                 let alias = &alias_prop_capture["alias"];
                 let property_name = &alias_prop_capture["property_name"];
-                unaliased_property = alias_map
+                unaliased_text = alias_map
                     .get(alias)
                     .ok_or(AliasError::new(format!(r#"missing alias "{}""#, alias)))
                     .and_then(|entity_id| {
@@ -143,10 +150,10 @@ impl StoryNode {
                                     .map(|property| property.to_string())
                             })
                     });
-            } else if world_property_re.is_match(property_path) {
-                let world_prop_capture = world_property_re.captures(property_path).unwrap();
+            } else if world_property_re.is_match(pattern) {
+                let world_prop_capture = world_property_re.captures(pattern).unwrap();
                 let property_name = &world_prop_capture["property_name"];
-                unaliased_property = context
+                unaliased_text = context
                     .world_property(property_name)
                     .ok_or(AliasError::new(format!(
                         r#"Missing world property "{}""#,
@@ -156,17 +163,17 @@ impl StoryNode {
             } else {
                 return Err(AliasError::new(format!(
                     r#"Malformed property path "{}""#,
-                    property_path
+                    pattern
                 )));
             }
 
-            match unaliased_property {
+            match unaliased_text {
                 Ok(property) => write!(&mut result_directive, "{}", property).unwrap(),
                 Err(err) => return Err(err),
             };
         }
-        if parts.len() > captures.len() {
-            write!(&mut result_directive, "{}", parts[captures.len()]).unwrap();
+        if parts.len() > matches.len() {
+            write!(&mut result_directive, "{}", parts[matches.len()]).unwrap();
         }
         Ok(result_directive)
     }
@@ -282,10 +289,13 @@ mod unit_tests {
             .with_world_property("location", "Calvinton");
 
         let node = StoryNode::new().with_directive(
-            "Hello {player.name} the {player.class}! Although I am only {vendor.age} years old, I am the namesake of this {location} shop: {vendor.name}'s Goods!",
+            r#"speak {<a>vendor} {<a>player} "Hello {player.name} the {player.class}! Although I am only {vendor.age} years old, I am the namesake of this {location} shop: {vendor.name}'s Goods!""#,
         );
 
         let directive = node.directive(&alias_map, &context).unwrap();
-        assert_eq!(directive, "Hello Umberto the explorer! Although I am only 18 years old, I am the namesake of this Calvinton shop: Hialda's Goods!");
+        assert_eq!(
+            directive,
+            r#"speak 1 0 "Hello Umberto the explorer! Although I am only 18 years old, I am the namesake of this Calvinton shop: Hialda's Goods!""#
+        );
     }
 }
