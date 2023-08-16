@@ -63,18 +63,12 @@ impl Constraint {
             Constraint::Equals(prop_name, property) => properties
                 .get(prop_name)
                 .is_some_and(|ent_prop| property == ent_prop),
-            Constraint::IsInRange(prop_name, range) => {
-                properties.get(prop_name).is_some_and(|prop| match prop {
-                    Property::Int(int) => range.contains(int),
-                    _ => false,
-                })
-            }
-            Constraint::IsInRangeFloat(prop_name, range) => {
-                properties.get(prop_name).is_some_and(|prop| match prop {
-                    Property::Float(float) => range.contains(float),
-                    _ => false,
-                })
-            }
+            Constraint::IsInRange(prop_name, range) => properties
+                .get(prop_name)
+                .is_some_and(|prop| prop.is_in_range(range)),
+            Constraint::IsInRangeFloat(prop_name, range) => properties
+                .get(prop_name)
+                .is_some_and(|prop| prop.is_in_range_float(range)),
         }
     }
 }

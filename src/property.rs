@@ -1,10 +1,11 @@
-use std::{collections::HashMap, fmt::Display};
+use std::{collections::HashMap, fmt::Display, ops::Range};
 
 use serde::{Deserialize, Serialize};
 
 use crate::{Float, Integer};
 
 pub type PropertyName = String;
+// TODO: newtype
 pub type PropertyMap = HashMap<PropertyName, Property>;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
@@ -12,6 +13,21 @@ pub enum Property {
     String(String),
     Int(Integer),
     Float(Float),
+}
+
+impl Property {
+    pub fn is_in_range(&self, range: &Range<i64>) -> bool {
+        match self {
+            Property::Int(value) => range.contains(value),
+            _ => false,
+        }
+    }
+    pub fn is_in_range_float(&self, range: &Range<f64>) -> bool {
+        match self {
+            Property::Float(value) => range.contains(value),
+            _ => false,
+        }
+    }
 }
 
 impl Display for Property {

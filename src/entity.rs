@@ -12,6 +12,7 @@ pub type EntityId = usize;
 pub struct Entity {
     id: EntityId,
     pub properties: PropertyMap,
+    pub exclusory_properties: PropertyMap,
 }
 
 impl Entity {
@@ -19,6 +20,7 @@ impl Entity {
         Self {
             id,
             properties: PropertyMap::default(),
+            exclusory_properties: PropertyMap::default(),
         }
     }
 
@@ -32,6 +34,16 @@ impl Entity {
         self
     }
 
+    pub fn with_exclusory(
+        mut self,
+        property_name: impl Into<PropertyName>,
+        property: impl Into<Property>,
+    ) -> Self {
+        self.exclusory_properties
+            .insert(property_name.into(), property.into());
+        self
+    }
+
     pub fn id(&self) -> EntityId {
         self.id
     }
@@ -41,5 +53,12 @@ impl Entity {
         P: Into<PropertyName>,
     {
         self.properties.get(&property.into())
+    }
+
+    pub fn get_exclusory<P>(&self, property: P) -> Option<&Property>
+    where
+        P: Into<PropertyName>,
+    {
+        self.exclusory_properties.get(&property.into())
     }
 }

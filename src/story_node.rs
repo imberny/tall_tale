@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     constraint::{AliasRelation, Constraint},
     context::Context,
+    prelude::Entity,
     property::{PropertyMap, PropertyName},
     story_graph::{AliasError, AliasMap},
 };
@@ -48,10 +49,32 @@ impl ConstrainedAlias {
         &self.alias
     }
 
-    pub(crate) fn is_satisfied_by(&self, properties: &PropertyMap) -> bool {
-        self.constraints
+    //
+    pub(crate) fn is_satisfied_by(&self, entity: &Entity) -> bool {
+        entity
+            .exclusory_properties
             .iter()
-            .all(|constraint| constraint.is_satisfied_by(properties))
+            .all(|(exclusory_prop_name, exclusory_property)| {
+                // TODO: make constraints a hashmap of prop_name to constraint
+                self.constraints.iter().any(|constraint| match constraint {
+                    Constraint::Has(prop_name) => prop_name == exclusory_prop_name,
+                    Constraint::Equals(prop_name, property) => {
+                        prop_name == exclusory_prop_name && property == exclusory_property
+                    }
+                    Constraint::IsInRange(prop_name, range) => {
+                        prop_name == exclusory_prop_name && exclusory_property.is_in_range(range)
+                    }
+                    Constraint::IsInRangeFloat(prop_name, range) => {
+                        prop_name == exclusory_prop_name
+                            && exclusory_property.is_in_range_float(range)
+                    }
+                    _ => false,
+                })
+            })
+            && self.constraints.iter().all(|constraint| {
+                constraint.is_satisfied_by(&entity.properties)
+                    || constraint.is_satisfied_by(&entity.exclusory_properties)
+            })
     }
 }
 

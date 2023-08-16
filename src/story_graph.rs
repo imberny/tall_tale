@@ -192,6 +192,12 @@ impl StoryGraph {
             return Ok(vec![]);
         }
 
+        if 0 == self.graph.node_count() {
+            return Ok(vec![]);
+        }
+
+        // TODO: what if start node not set? set automatically to first inserted node?
+
         // assert at least one valid alias permutation
         let permutations = self.alias_permutations(context);
 
@@ -229,7 +235,7 @@ impl StoryGraph {
             .map(|constrained_alias| {
                 let valid_entities = context
                     .entities()
-                    .filter(|entity| constrained_alias.is_satisfied_by(&entity.properties))
+                    .filter(|entity| constrained_alias.is_satisfied_by(entity))
                     .map(|entity| entity.id())
                     .collect_vec();
                 (constrained_alias.alias().clone(), valid_entities)
@@ -341,6 +347,7 @@ fn valid_alias_permutations(
 
 #[cfg(test)]
 mod unit_tests {
+    use crate::entity::EntityId;
     use crate::prelude::{Constraint, Context, Entity};
 
     use crate::{story_graph::StoryGraph, story_node::StoryNode};
@@ -525,5 +532,49 @@ mod unit_tests {
         let aliases = &permutations[0];
         assert_eq!(aliases["player"], PROTAGONIST);
         assert_eq!(aliases["citizen"], NEW_CITIZEN);
+    }
+
+    #[test]
+    fn an_alias_with_exclusionary_properties_is_only_bound_to_entities_with_these_properties() {
+        const EXCLUSIONARY: EntityId = 1;
+        const NON_EXCLUSIONARY: EntityId = 2;
+        const EMPTY: EntityId = 3;
+
+        let context = Context::default().with_entities([
+            Entity::new(EXCLUSIONARY).with_exclusory("exclusionary", ""),
+            Entity::new(NON_EXCLUSIONARY)
+                .with("exclusionary", "")
+                .with("some property", ""),
+            Entity::new(EMPTY),
+        ]);
+
+        let mut graph = StoryGraph::new();
+        graph.add_alias("precise character", [Constraint::has("exclusionary")]);
+
+        let start = graph.add(StoryNode::new());
+        graph.set_start_node(start);
+
+        let result = graph.alias_candidates(&context);
+        let candidates = result.unwrap();
+        assert!(!candidates.is_empty());
+
+        let ok = candidates
+            .iter()
+            .any(|alias_map| alias_map.get("precise character").unwrap() == EXCLUSIONARY)
+            && candidates
+                .iter()
+                .any(|alias_map| alias_map.get("precise character").unwrap() == NON_EXCLUSIONARY);
+        assert!(ok);
+
+        let mut graph = StoryGraph::new();
+        graph.add_alias("some character", [Constraint::has("some property")]);
+
+        let start = graph.add(StoryNode::new());
+        graph.set_start_node(start);
+
+        let candidates = graph.alias_candidates(&context).unwrap();
+        assert!(!candidates
+            .iter()
+            .any(|alias_map| alias_map.get("some character").unwrap() == EXCLUSIONARY));
     }
 }
