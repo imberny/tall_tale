@@ -1,14 +1,14 @@
 #[cfg(test)]
 mod story_graph_tests {
     use raconteur::prelude::{
-        Constraint, Context, Entity, Raconteur, StoryCandidate, StoryGraph, StoryNode,
+        Constraint, Entity, NarrativeWorld, Raconteur, ScenarioAction, ScenarioGraph,
     };
     use ron::ser::PrettyConfig;
 
     #[test]
     fn complex_graph() {
         let mut raconteur = Raconteur::default();
-        let mut graph = StoryGraph::new();
+        let mut graph = ScenarioGraph::new();
         graph.add_alias(
             "rich citizen",
             [
@@ -33,13 +33,13 @@ mod story_graph_tests {
         );
 
         let start = graph.add(
-            StoryNode::new()
+            ScenarioAction::new()
                 .with_description("rich citizen passes poor man")
                 .with_world_constraint(Constraint::equals("location type", "city")),
         );
 
         let beg_stranger = graph.add(
-            StoryNode::new()
+            ScenarioAction::new()
                 .with_description("poor man begs rich citizen")
                 .with_relation_constraints(
                     "poor man",
@@ -49,19 +49,19 @@ mod story_graph_tests {
         );
 
         let rich_citizen_donates =
-            graph.add(StoryNode::new().with_description("rich citizen donates"));
+            graph.add(ScenarioAction::new().with_description("rich citizen donates"));
 
         let rich_citizen_passes_by =
-            graph.add(StoryNode::new().with_description("rich citizen passes by"));
+            graph.add(ScenarioAction::new().with_description("rich citizen passes by"));
 
         let beggar_knows_rich_man = graph.add(
-            StoryNode::new()
+            ScenarioAction::new()
                 .with_description("poor man recognizes rich citizen")
                 .with_relation_constraints("poor man", "rich citizen", [Constraint::has("knows")]),
         );
 
         let beggar_talks_about_rich_citizen_daughter = graph.add(
-            StoryNode::new()
+            ScenarioAction::new()
                 .with_description("poor man talks about rich citizen daughter")
                 .with_relation_constraints(
                     "rich citizen",
@@ -71,7 +71,7 @@ mod story_graph_tests {
         );
 
         let beggar_talks_about_his_daughter = graph.add(
-            StoryNode::new()
+            ScenarioAction::new()
                 .with_description("poor man talks about rich citizen daughter")
                 .with_relation_constraints(
                     "rich citizen",
@@ -111,7 +111,7 @@ mod story_graph_tests {
 
         raconteur.insert(graph);
 
-        let context = Context::new()
+        let context = NarrativeWorld::new()
             .with_world_property("location type", "city")
             .with_entities([
                 Entity::new(0)
@@ -151,19 +151,16 @@ mod story_graph_tests {
             .with_relation(0, 4, "knows", "")
             .with_relation(4, 7, "parent", "");
 
-        let result = raconteur.query(&context);
+        let scenarios = raconteur.query(&context);
 
-        assert!(!result.is_empty());
-        let StoryCandidate {
-            id,
-            alias_candidates,
-        } = &result[0];
-        assert_eq!(alias_candidates.len(), 8);
+        assert!(!scenarios.is_empty());
+        let scenario = scenarios[0];
+        assert_eq!(scenario.alias_map.size(), 8);
 
         // TODO: problem, if the story world changes a leaf node might not be reachable. What to do in that case? Simply drop the story?
-        let story_graph = raconteur.get(*id);
-        for alias_map in alias_candidates {
-            let mut node_id = story_graph.start();
+        for scenario in scenarios {
+            // TODO: traverse scenario
+            let mut node_id = scenario.start();
             while !story_graph.next(node_id, &context, alias_map).is_empty() {
                 node_id = story_graph.next(node_id, &context, alias_map)[0];
             }

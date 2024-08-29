@@ -1,23 +1,20 @@
 mod constraint;
-mod context;
 mod entity;
+mod narrative_world;
 mod property;
 mod raconteur;
-mod story_graph;
-mod story_node;
+mod scenario;
+mod scenario_action;
+mod scenario_graph;
+mod schema;
 
-pub type Integer = i64;
-pub type Float = f64;
+pub type Int = i64;
+pub type Real = f64;
 
 pub mod prelude {
     pub use crate::{
-        constraint::Constraint,
-        context::Context,
-        entity::Entity,
-        property::PropertyName,
-        raconteur::{Raconteur, StoryCandidate, StoryId},
-        story_graph::StoryGraph,
-        story_node::StoryNode,
-        Float, Integer,
+        constraint::Constraint, entity::Entity, narrative_world::NarrativeWorld,
+        property::PropertyName, raconteur::Raconteur, scenario::Scenario,
+        scenario_action::ScenarioAction, scenario_graph::ScenarioGraph, Int, Real,
     };
 }

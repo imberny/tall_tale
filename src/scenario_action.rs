@@ -10,10 +10,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     constraint::{AliasRelation, Constraint},
-    context::Context,
+    narrative_world::NarrativeWorld,
     prelude::Entity,
     property::{PropertyMap, PropertyName},
-    story_graph::{AliasError, AliasMap},
+    scenario_graph::{AliasError, AliasMap},
 };
 
 pub type Alias = String;
@@ -29,8 +29,8 @@ impl Error for NotSatisfied {}
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub(crate) struct ConstrainedAlias {
-    alias: Alias,
-    constraints: Vec<Constraint>,
+    pub(crate) alias: Alias,
+    pub(crate) constraints: Vec<Constraint>,
 }
 
 impl ConstrainedAlias {
@@ -79,14 +79,14 @@ impl ConstrainedAlias {
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq)]
-pub struct StoryNode {
+pub struct ScenarioAction {
     pub description: String,
     pub relation_constraints: Vec<AliasRelation>,
     pub world_constraints: Vec<Constraint>,
     pub directive: String, // TODO, some DSL instead of just strings? maybe this approach https://github.com/clap-rs/clap/blob/053c778e986d99b4f53afdb666d9398e75d8d2fb/examples/repl.rs
 }
 
-impl StoryNode {
+impl ScenarioAction {
     pub fn new() -> Self {
         Self::default()
     }
@@ -124,7 +124,7 @@ impl StoryNode {
         self
     }
 
-    pub(crate) fn are_world_constraints_satisfied(&self, context: &Context) -> bool {
+    pub(crate) fn are_world_constraints_satisfied(&self, context: &NarrativeWorld) -> bool {
         self.world_constraints
             .iter()
             .all(|constraint| constraint.is_satisfied_by(context.properties()))
@@ -132,7 +132,7 @@ impl StoryNode {
 
     pub(crate) fn are_relation_constraints_satisfied(
         &self,
-        context: &Context,
+        context: &NarrativeWorld,
         alias_entities: &AliasMap,
     ) -> bool {
         self.relation_constraints.iter().all(|relation| {
@@ -156,7 +156,11 @@ impl StoryNode {
         })
     }
 
-    pub fn directive(&self, alias_map: &AliasMap, context: &Context) -> Result<String, AliasError> {
+    pub fn directive(
+        &self,
+        alias_map: &AliasMap,
+        context: &NarrativeWorld,
+    ) -> Result<String, AliasError> {
         static PATTERNS_RE: Lazy<Regex> =
             Lazy::new(|| Regex::new(r"\{([<>[:word:]\.]+)\}").unwrap());
         static ALIAS_RE: Lazy<Regex> = Lazy::new(|| Regex::new("<a>([[:word:]]+)").unwrap());
@@ -234,18 +238,18 @@ impl StoryNode {
 mod unit_tests {
     use crate::{
         entity::EntityId,
-        prelude::{Context, Entity},
-        story_graph::AliasMap,
+        prelude::{Entity, NarrativeWorld},
+        scenario_graph::AliasMap,
     };
 
-    use super::StoryNode;
+    use super::ScenarioAction;
 
     #[test]
     fn unalias_directive() {
         const PLAYER: EntityId = 0;
-        let node = StoryNode::new().with_directive("{player.name}");
+        let node = ScenarioAction::new().with_directive("{player.name}");
         let mut alias_map = AliasMap::default();
-        let context = Context::default();
+        let context = NarrativeWorld::default();
 
         let directive = node.directive(&alias_map, &context);
         assert!(directive.is_err());
@@ -254,11 +258,12 @@ mod unit_tests {
         let directive = node.directive(&alias_map, &context);
         assert!(directive.is_err());
 
-        let context = Context::default().with_entity(Entity::new(PLAYER));
+        let context = NarrativeWorld::default().with_entity(Entity::new(PLAYER));
         let directive = node.directive(&alias_map, &context);
         assert!(directive.is_err());
 
-        let context = Context::default().with_entity(Entity::new(PLAYER).with("name", "My Name"));
+        let context =
+            NarrativeWorld::default().with_entity(Entity::new(PLAYER).with("name", "My Name"));
         let directive = node.directive(&alias_map, &context).unwrap();
         assert_eq!(directive, "My Name");
     }
@@ -268,14 +273,14 @@ mod unit_tests {
         const PLAYER: EntityId = 0;
         let mut alias_map = AliasMap::default();
         alias_map.associate("player".into(), PLAYER);
-        let context = Context::default().with_entity(
+        let context = NarrativeWorld::default().with_entity(
             Entity::new(PLAYER)
                 .with("name", "Umberto")
                 .with("level", 1)
                 .with("class", "explorer"),
         );
 
-        let node = StoryNode::new().with_directive(
+        let node = ScenarioAction::new().with_directive(
             "Hello, I am {player.name} and I am a level {player.level} {player.class}.",
         );
 
@@ -293,7 +298,7 @@ mod unit_tests {
         let mut alias_map = AliasMap::default();
         alias_map.associate("player".into(), PLAYER);
         alias_map.associate("vendor".into(), SHOPKEEP);
-        let context = Context::default()
+        let context = NarrativeWorld::default()
             .with_entity(
                 Entity::new(PLAYER)
                     .with("name", "Umberto")
@@ -307,7 +312,7 @@ mod unit_tests {
             )
             .with_world_property("location", "Calvinton");
 
-        let node = StoryNode::new().with_directive(
+        let node = ScenarioAction::new().with_directive(
             r#"speak {<a>vendor} {<a>player} "Hello {player.name} the {player.class}! Although I am only {vendor.age} years old, I am the namesake of this {location} shop: {vendor.name}'s Goods!""#,
         );
 

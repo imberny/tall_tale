@@ -2,7 +2,6 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     entity::{Entity, EntityId},
-    prelude::StoryId,
     property::{Property, PropertyMap, PropertyName},
 };
 
@@ -10,14 +9,14 @@ use crate::{
 type RelationMap = HashMap<(EntityId, EntityId), PropertyMap>;
 
 #[derive(Default)]
-pub struct Context {
+pub struct NarrativeWorld {
     entities: HashMap<EntityId, Entity>, // characters, items, locations ... matched against alias_constraints
     relations: RelationMap,
     properties: PropertyMap, // miscellanious world variables, matched agains world_constraints
-    exclude: HashSet<StoryId>,
+                             // exclude: HashSet<StoryId>,
 }
 
-impl Context {
+impl NarrativeWorld {
     pub fn new() -> Self {
         Self::default()
     }
@@ -62,13 +61,13 @@ impl Context {
         self
     }
 
-    pub fn exclude(&mut self, story_ids: &[StoryId]) {
-        self.exclude.extend(story_ids);
-    }
+    // pub fn exclude(&mut self, story_ids: &[StoryId]) {
+    //     self.exclude.extend(story_ids);
+    // }
 
-    pub(crate) fn is_included(&self, story_id: &StoryId) -> bool {
-        !self.exclude.contains(story_id)
-    }
+    // pub(crate) fn is_included(&self, story_id: &StoryId) -> bool {
+    //     !self.exclude.contains(story_id)
+    // }
 
     pub(crate) fn entity(&self, id: EntityId) -> Option<&Entity> {
         self.entities.get(&id)
