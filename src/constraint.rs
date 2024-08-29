@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     property::{Property, PropertyMap, PropertyName},
-    story_node::Alias,
-    Float, Integer,
+    scenario_action::Alias,
+    Int, Real,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -13,15 +13,15 @@ pub enum Constraint {
     Has(PropertyName),
     HasNot(PropertyName),
     Equals(PropertyName, Property),
-    IsInRange(PropertyName, Range<Integer>),
-    IsInRangeFloat(PropertyName, Range<Float>),
+    IsInRange(PropertyName, Range<Int>),
+    IsInRangeFloat(PropertyName, Range<Real>),
 }
 
 impl Constraint {
     pub fn is_in_range<N, R>(property_name: N, range: R) -> Self
     where
         N: Into<PropertyName>,
-        R: Into<Range<Integer>>,
+        R: Into<Range<Int>>,
     {
         Self::IsInRange(property_name.into(), range.into())
     }
@@ -29,7 +29,7 @@ impl Constraint {
     pub fn is_in_range_float<N, R>(property_name: N, range: R) -> Self
     where
         N: Into<PropertyName>,
-        R: Into<Range<Float>>,
+        R: Into<Range<Real>>,
     {
         Self::IsInRangeFloat(property_name.into(), range.into())
     }

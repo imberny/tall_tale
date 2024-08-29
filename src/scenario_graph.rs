@@ -14,11 +14,11 @@ use std::{
 
 use crate::{
     entity::EntityId,
-    prelude::{Constraint, Context},
-    story_node::{Alias, ConstrainedAlias, StoryNode},
+    prelude::{Constraint, NarrativeWorld},
+    scenario_action::{Alias, ConstrainedAlias, ScenarioAction},
 };
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct AliasMap(HashMap<Alias, EntityId>);
 
 impl AliasMap {
@@ -28,6 +28,10 @@ impl AliasMap {
 
     pub fn get(&self, alias: &str) -> Option<EntityId> {
         self.0.get(alias).cloned()
+    }
+
+    pub fn size(&self) -> usize {
+        self.0.len()
     }
 }
 
@@ -75,34 +79,34 @@ impl fmt::Display for AliasError {
 impl Error for AliasError {}
 
 #[derive(Default, Serialize, Deserialize, Clone, Copy)]
-pub struct StoryNodeId(usize);
+pub struct ScenarioActionId(usize);
 
-impl From<NodeIndex> for StoryNodeId {
+impl From<NodeIndex> for ScenarioActionId {
     fn from(value: NodeIndex) -> Self {
-        StoryNodeId(value.index())
+        ScenarioActionId(value.index())
     }
 }
 
-impl From<StoryNodeId> for NodeIndex {
-    fn from(value: StoryNodeId) -> Self {
+impl From<ScenarioActionId> for NodeIndex {
+    fn from(value: ScenarioActionId) -> Self {
         NodeIndex::new(value.0)
     }
 }
 
 #[derive(Default, Serialize, Deserialize)]
-pub struct StoryGraph {
+pub struct ScenarioGraph {
     aliases: Vec<ConstrainedAlias>,
-    start_id: StoryNodeId,
-    graph: Graph<StoryNode, f64>,
+    start_id: ScenarioActionId,
+    graph: Graph<ScenarioAction, f64>,
     weak_edges: HashMap<NodeIndex, Vec<NodeIndex>>,
 }
 
-impl StoryGraph {
+impl ScenarioGraph {
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn start(&self) -> StoryNodeId {
+    pub fn start(&self) -> ScenarioActionId {
         self.start_id
     }
 
@@ -114,7 +118,7 @@ impl StoryGraph {
         self.aliases.push(ConstrainedAlias::new(alias, constraints));
     }
 
-    pub fn get(&self, node_id: StoryNodeId) -> &StoryNode {
+    pub fn get(&self, node_id: ScenarioActionId) -> &ScenarioAction {
         &self.graph[NodeIndex::from(node_id)]
     }
 
@@ -131,10 +135,10 @@ impl StoryGraph {
 
     pub fn next(
         &self,
-        node_id: StoryNodeId,
-        context: &Context,
+        node_id: ScenarioActionId,
+        context: &NarrativeWorld,
         alias_map: &AliasMap,
-    ) -> Vec<StoryNodeId> {
+    ) -> Vec<ScenarioActionId> {
         self.all_connections(node_id.into())
             .into_iter()
             .filter(|&index| {
@@ -142,26 +146,30 @@ impl StoryGraph {
                 node.are_world_constraints_satisfied(context)
                     && node.are_relation_constraints_satisfied(context, alias_map)
             })
-            .map(StoryNodeId::from)
+            .map(ScenarioActionId::from)
             .collect()
     }
 
-    pub fn set_start_node(&mut self, node_id: StoryNodeId) {
+    pub fn set_start_node(&mut self, node_id: ScenarioActionId) {
         self.start_id = node_id;
     }
 
-    pub fn add(&mut self, story_node: StoryNode) -> StoryNodeId {
+    pub fn add(&mut self, story_node: ScenarioAction) -> ScenarioActionId {
         self.graph.add_node(story_node).into()
     }
 
-    pub fn connect(&mut self, from: StoryNodeId, to: StoryNodeId) -> Result<(), CycleDetected> {
+    pub fn connect(
+        &mut self,
+        from: ScenarioActionId,
+        to: ScenarioActionId,
+    ) -> Result<(), CycleDetected> {
         self.connect_weight(from, to, 0.0)
     }
 
     pub fn connect_weight(
         &mut self,
-        parent: StoryNodeId,
-        child: StoryNodeId,
+        parent: ScenarioActionId,
+        child: ScenarioActionId,
         weight: f64,
     ) -> Result<(), CycleDetected> {
         let edge = self.graph.add_edge(parent.into(), child.into(), weight);
@@ -174,8 +182,8 @@ impl StoryGraph {
     // weak edges mean no inheritance in order to prevent cycles
     pub fn connect_weak(
         &mut self,
-        from: StoryNodeId,
-        to: StoryNodeId,
+        from: ScenarioActionId,
+        to: ScenarioActionId,
     ) -> Result<(), CycleDetected> {
         self.weak_edges
             .entry(from.into())
@@ -184,9 +192,17 @@ impl StoryGraph {
         Ok(())
     }
 
+    pub fn num_alias_constraints(&self) -> usize {
+        return self
+            .aliases
+            .iter()
+            .map(|constrained_alias| constrained_alias.constraints.len())
+            .fold(0, |acc, val| acc + val);
+    }
+
     pub fn alias_candidates(
         &self,
-        context: &Context,
+        context: &NarrativeWorld,
     ) -> Result<Vec<AliasMap>, ConstraintsNotSatisfied> {
         if self.aliases.is_empty() {
             return Ok(vec![]);
@@ -228,7 +244,7 @@ impl StoryGraph {
 
     // return list of possible alias permutations
     // Doesn't validate relation constraints, a those can vary from node to node and thus affect which choices are available
-    fn alias_permutations(&self, context: &Context) -> Vec<AliasMap> {
+    fn alias_permutations(&self, context: &NarrativeWorld) -> Vec<AliasMap> {
         let alias_candidates: HashMap<_, _> = self
             .aliases
             .iter()
@@ -278,12 +294,12 @@ impl StoryGraph {
 }
 
 struct Node<'a> {
-    pub story: &'a StoryNode,
+    pub story: &'a ScenarioAction,
     pub children: Vec<Node<'a>>,
     pub is_leaf: bool,
 }
 
-fn collect_tree(node_id: StoryNodeId, story_graph: &StoryGraph) -> Node {
+fn collect_tree(node_id: ScenarioActionId, story_graph: &ScenarioGraph) -> Node {
     let mut node = Node {
         story: story_graph.get(node_id),
         children: vec![],
@@ -301,9 +317,10 @@ fn collect_tree(node_id: StoryNodeId, story_graph: &StoryGraph) -> Node {
 }
 
 // returns list of indices of valid bindings
+// TODO: also return num of constraints along path to leaf
 fn valid_alias_permutations(
     node: &Node,
-    context: &Context,
+    context: &NarrativeWorld,
     alias_binding_permutations: &[AliasMap],
     parent_valid_indices: &HashSet<usize>,
 ) -> HashSet<usize> {
@@ -348,18 +365,18 @@ fn valid_alias_permutations(
 #[cfg(test)]
 mod unit_tests {
     use crate::entity::EntityId;
-    use crate::prelude::{Constraint, Context, Entity};
+    use crate::prelude::{Constraint, Entity, NarrativeWorld};
 
-    use crate::{story_graph::StoryGraph, story_node::StoryNode};
+    use crate::{scenario_action::ScenarioAction, scenario_graph::ScenarioGraph};
 
-    fn player_meets_citizen_with_two_outcomes() -> StoryGraph {
-        let mut graph = StoryGraph::new();
+    fn player_meets_citizen_with_two_outcomes() -> ScenarioGraph {
+        let mut graph = ScenarioGraph::new();
 
         graph.add_alias("player", [Constraint::has("protagonist")]);
         graph.add_alias("citizen", []);
 
         let start = graph.add(
-            StoryNode::new()
+            ScenarioAction::new()
                 .with_description("player talks to a new citizen")
                 .with_relation_constraints(
                     "player",
@@ -372,7 +389,7 @@ mod unit_tests {
         graph.set_start_node(start);
 
         let citizen_greeting = graph.add(
-            StoryNode::new()
+            ScenarioAction::new()
                 .with_description("citizen greets player")
                 .with_directive(r#"citizen says "Long days and pleasant nights.""#),
         );
@@ -380,7 +397,7 @@ mod unit_tests {
         let _ = graph.connect(start, citizen_greeting);
 
         let ask_for_directions = graph.add(
-            StoryNode::new()
+            ScenarioAction::new()
                 .with_description("player asks for directions")
                 .with_directive(r#"player says "Could you tell me where I could find...""#),
         );
@@ -388,7 +405,7 @@ mod unit_tests {
         let _ = graph.connect(citizen_greeting, ask_for_directions);
 
         let goodbye = graph.add(
-            StoryNode::new()
+            ScenarioAction::new()
                 .with_description("player quits dialogue")
                 .with_directive(r#"player says "Goodbye, sai.""#),
         );
@@ -400,11 +417,11 @@ mod unit_tests {
 
     #[test]
     fn graph_cycle() {
-        let mut graph = StoryGraph::new();
+        let mut graph = ScenarioGraph::new();
 
-        let a = graph.add(StoryNode::new());
-        let b = graph.add(StoryNode::new());
-        let c = graph.add(StoryNode::new());
+        let a = graph.add(ScenarioAction::new());
+        let b = graph.add(ScenarioAction::new());
+        let c = graph.add(ScenarioAction::new());
 
         let result = graph.connect(a, b);
         assert!(result.is_ok());
@@ -416,11 +433,11 @@ mod unit_tests {
 
     #[test]
     fn graph_cycle_weak() {
-        let mut graph = StoryGraph::new();
+        let mut graph = ScenarioGraph::new();
 
-        let a = graph.add(StoryNode::new());
-        let b = graph.add(StoryNode::new());
-        let c = graph.add(StoryNode::new());
+        let a = graph.add(ScenarioAction::new());
+        let b = graph.add(ScenarioAction::new());
+        let c = graph.add(ScenarioAction::new());
 
         let result = graph.connect(a, b);
         assert!(result.is_ok());
@@ -449,15 +466,15 @@ mod unit_tests {
 
     #[test]
     fn a_graph_with_no_leaf_node_is_err() {
-        let mut graph = StoryGraph::new();
+        let mut graph = ScenarioGraph::new();
         graph.add_alias("person", []);
-        let a = graph.add(StoryNode::new());
-        let b = graph.add(StoryNode::new());
+        let a = graph.add(ScenarioAction::new());
+        let b = graph.add(ScenarioAction::new());
         // TODO: this particular case should be caught when building the graph
         let _ = graph.connect(a, b);
         let _ = graph.connect_weak(b, a);
 
-        let context = Context::new().with_entity(Entity::new(0));
+        let context = NarrativeWorld::new().with_entity(Entity::new(0));
         let result = graph.alias_candidates(&context);
 
         assert!(result.is_err());
@@ -465,11 +482,11 @@ mod unit_tests {
 
     #[test]
     fn a_graph_with_no_aliases_is_ok() {
-        let mut graph = StoryGraph::new();
-        let a = graph.add(StoryNode::new());
+        let mut graph = ScenarioGraph::new();
+        let a = graph.add(ScenarioAction::new());
         graph.set_start_node(a);
 
-        let context = Context::new().with_entity(Entity::new(0));
+        let context = NarrativeWorld::new().with_entity(Entity::new(0));
         let result = graph.alias_candidates(&context);
 
         assert!(result.is_ok());
@@ -477,15 +494,15 @@ mod unit_tests {
 
     #[test]
     fn a_graph_needs_at_least_one_reachable_leaf_node() {
-        let mut graph: StoryGraph = StoryGraph::new();
+        let mut graph: ScenarioGraph = ScenarioGraph::new();
         graph.add_alias("person", []);
 
-        let a = graph.add(StoryNode::new());
-        let b = graph.add(StoryNode::new());
+        let a = graph.add(ScenarioAction::new());
+        let b = graph.add(ScenarioAction::new());
         graph.set_start_node(a);
         let _ = graph.connect(a, b);
 
-        let context = Context::new().with_entity(Entity::new(0));
+        let context = NarrativeWorld::new().with_entity(Entity::new(0));
         let result = graph.alias_candidates(&context);
 
         assert!(result.is_ok());
@@ -495,16 +512,16 @@ mod unit_tests {
 
     #[test]
     fn a_graph_with_no_reachable_leaf_node_is_err() {
-        let mut graph: StoryGraph = StoryGraph::new();
+        let mut graph: ScenarioGraph = ScenarioGraph::new();
         graph.add_alias("person", []);
 
-        let a = graph.add(StoryNode::new());
-        let b =
-            graph.add(StoryNode::new().with_world_constraint(Constraint::has("some constraint")));
+        let a = graph.add(ScenarioAction::new());
+        let b = graph
+            .add(ScenarioAction::new().with_world_constraint(Constraint::has("some constraint")));
         graph.set_start_node(a);
         let _ = graph.connect(a, b);
 
-        let context = Context::new().with_entity(Entity::new(0));
+        let context = NarrativeWorld::new().with_entity(Entity::new(0));
         let result = graph.alias_candidates(&context);
 
         assert!(result.is_err());
@@ -515,7 +532,7 @@ mod unit_tests {
         const PROTAGONIST: usize = 0;
         const NEW_CITIZEN: usize = 1;
         const KNOWN_CITIZEN: usize = 2;
-        let context = Context::new()
+        let context = NarrativeWorld::new()
             .with_entities([
                 Entity::new(PROTAGONIST).with("protagonist", ""),
                 Entity::new(NEW_CITIZEN),
@@ -540,7 +557,7 @@ mod unit_tests {
         const NON_EXCLUSIONARY: EntityId = 2;
         const EMPTY: EntityId = 3;
 
-        let context = Context::default().with_entities([
+        let context = NarrativeWorld::default().with_entities([
             Entity::new(EXCLUSIONARY).with_exclusory("exclusionary", ""),
             Entity::new(NON_EXCLUSIONARY)
                 .with("exclusionary", "")
@@ -548,10 +565,10 @@ mod unit_tests {
             Entity::new(EMPTY),
         ]);
 
-        let mut graph = StoryGraph::new();
+        let mut graph = ScenarioGraph::new();
         graph.add_alias("precise character", [Constraint::has("exclusionary")]);
 
-        let start = graph.add(StoryNode::new());
+        let start = graph.add(ScenarioAction::new());
         graph.set_start_node(start);
 
         let result = graph.alias_candidates(&context);
@@ -566,10 +583,10 @@ mod unit_tests {
                 .any(|alias_map| alias_map.get("precise character").unwrap() == NON_EXCLUSIONARY);
         assert!(ok);
 
-        let mut graph = StoryGraph::new();
+        let mut graph = ScenarioGraph::new();
         graph.add_alias("some character", [Constraint::has("some property")]);
 
-        let start = graph.add(StoryNode::new());
+        let start = graph.add(ScenarioAction::new());
         graph.set_start_node(start);
 
         let candidates = graph.alias_candidates(&context).unwrap();

@@ -6,8 +6,8 @@ mod query_tests {
     const GUY_ID: usize = 0;
     const GIRL_ID: usize = 1;
 
-    fn query() -> Context {
-        Context::new()
+    fn query() -> NarrativeWorld {
+        NarrativeWorld::new()
             .with_entities([
                 Entity::new(GUY_ID).with("name", "Bertrand").with("age", 30),
                 Entity::new(GIRL_ID)
@@ -20,12 +20,12 @@ mod query_tests {
     fn guy_no_like_girl() -> Raconteur {
         let mut raconteur = Raconteur::new();
         raconteur.insert({
-            let mut graph = StoryGraph::new();
+            let mut graph = ScenarioGraph::new();
 
             graph.add_alias("guy", []);
             graph.add_alias("girl", []);
             let idx = graph.add(
-                StoryNode::new()
+                ScenarioAction::new()
                     .with_description("low_opinion")
                     .with_relation_constraints(
                         "guy",
@@ -46,12 +46,12 @@ mod query_tests {
         let mut raconteur = Raconteur::new();
 
         raconteur.insert({
-            let mut graph = StoryGraph::new();
+            let mut graph = ScenarioGraph::new();
             graph.add_alias("guy", []);
             graph.add_alias("girl", []);
 
             let idx = graph.add(
-                StoryNode::new()
+                ScenarioAction::new()
                     .with_description("guy_like_girl")
                     .with_relation_constraints(
                         "guy",
@@ -80,14 +80,14 @@ mod query_tests {
         let raconteur: Raconteur = guy_like_girl();
         let story_candidates = raconteur.query(&query());
         let first_story = &story_candidates[0];
-        let story_graph = raconteur.get(first_story.id);
+        let story_graph = raconteur.get(first_story.id());
         let start_node = story_graph.get(story_graph.start());
         assert_eq!(start_node.description, "guy_like_girl");
     }
 
     #[test]
     fn many_matches() {
-        const MAX_MONEY: Float = 100000.0;
+        const MAX_MONEY: Real = 100000.0;
         const PLAYER_ID: usize = 1;
         const BAKER_ID: usize = 2;
         const CUSTOMER_ID: usize = 3;
@@ -95,7 +95,7 @@ mod query_tests {
         let mut raconteur = Raconteur::default();
         // wealthy player
         raconteur.insert({
-            let mut graph = StoryGraph::new();
+            let mut graph = ScenarioGraph::new();
             graph.add_alias(
                 "baking_man",
                 [
@@ -111,7 +111,8 @@ mod query_tests {
                 ],
             );
             let node_idx = graph.add(
-                StoryNode::new().with_world_constraint(Constraint::equals("location", "bakery")),
+                ScenarioAction::new()
+                    .with_world_constraint(Constraint::equals("location", "bakery")),
             );
 
             graph.set_start_node(node_idx);
@@ -121,7 +122,7 @@ mod query_tests {
 
         // Poor player
         raconteur.insert({
-            let mut graph = StoryGraph::new();
+            let mut graph = ScenarioGraph::new();
             graph.add_alias(
                 "baking_man",
                 [
@@ -137,7 +138,8 @@ mod query_tests {
                 ],
             );
             let node_idx = graph.add(
-                StoryNode::new().with_world_constraint(Constraint::equals("location", "bakery")),
+                ScenarioAction::new()
+                    .with_world_constraint(Constraint::equals("location", "bakery")),
             );
 
             graph.set_start_node(node_idx);
@@ -145,7 +147,7 @@ mod query_tests {
             graph
         });
 
-        let query_player_wealthy = Context::new()
+        let query_player_wealthy = NarrativeWorld::new()
             .with_entities([
                 Entity::new(PLAYER_ID)
                     .with("player", "")
@@ -166,7 +168,7 @@ mod query_tests {
         assert_eq!(aliases["player"], PLAYER_ID);
         assert_eq!(aliases["baking_man"], BAKER_ID);
 
-        let query_player_poor = Context::new()
+        let query_player_poor = NarrativeWorld::new()
             .with_entities([
                 Entity::new(PLAYER_ID).with("player", "").with("money", 0.0),
                 Entity::new(BAKER_ID)
@@ -185,7 +187,7 @@ mod query_tests {
         assert_eq!(aliases["player"], PLAYER_ID);
         assert_eq!(aliases["baking_man"], BAKER_ID);
 
-        let query_player_average_wealth = Context::new()
+        let query_player_average_wealth = NarrativeWorld::new()
             .with_entities([
                 Entity::new(PLAYER_ID)
                     .with("player", "")

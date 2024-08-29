@@ -8,9 +8,10 @@ pub type EntityId = usize;
 //         Self(value)
 //     }
 // }
+pub type EntityType = String; // A label to distinguish types
 
 pub struct Entity {
-    id: EntityId,
+    id: EntityId, // user provided id to let them map story entities to game objects
     pub properties: PropertyMap,
     pub exclusory_properties: PropertyMap,
 }

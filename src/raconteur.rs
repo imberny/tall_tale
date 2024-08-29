@@ -1,22 +1,17 @@
+use std::rc::Rc;
+
 use itertools::Itertools;
 
 use crate::{
-    context::Context,
-    story_graph::{AliasMap, StoryGraph},
+    narrative_world::NarrativeWorld,
+    prelude::Scenario,
+    scenario_graph::{AliasMap, ScenarioGraph},
 };
-
-#[derive(Hash, PartialEq, Eq, Clone, Copy)]
-pub struct StoryId(usize);
-
-pub struct StoryCandidate {
-    pub id: StoryId,
-    pub alias_candidates: Vec<AliasMap>,
-}
 
 // #[derive(Serialize, Deserialize)]
 #[derive(Default)]
 pub struct Raconteur {
-    stories: Vec<StoryGraph>,
+    stories: Vec<Rc<ScenarioGraph>>,
 }
 
 impl Raconteur {
@@ -24,36 +19,37 @@ impl Raconteur {
         Self::default()
     }
 
-    pub fn insert(&mut self, story_graph: StoryGraph) {
-        self.stories.push(story_graph);
+    pub fn insert(&mut self, scenario_graph: ScenarioGraph) {
+        self.stories.push(Rc::new(scenario_graph));
     }
 
-    pub fn query(&self, context: &Context) -> Vec<StoryCandidate> {
+    pub fn query(&self, context: &NarrativeWorld) -> Vec<Scenario> {
         // go through list of story beats, discarding those whose constraints aren't satisfied
 
         self.stories
             .iter()
             .enumerate()
-            .filter(|&(index, _)| context.is_included(&StoryId(index)))
-            .filter_map(|(story_idx, story_graph)| {
-                let result = story_graph.alias_candidates(context);
+            // .filter(|&(index, _)| context.is_included(&StoryId(index)))
+            .filter_map(|(index, scenario_graph)| {
+                let result = scenario_graph.alias_candidates(context);
 
-                result.ok().map(|alias_candidates| StoryCandidate {
-                    id: StoryId(story_idx),
-                    alias_candidates,
+                result.ok().map(|alias_candidates| {
+                    alias_candidates
+                        .iter()
+                        .map(|alias_map| {
+                            Scenario::new(index, Rc::clone(scenario_graph), alias_map.clone())
+                        })
+                        .collect_vec()
                 })
             })
+            .flatten()
             .collect_vec()
-    }
-
-    pub fn get(&self, story_id: StoryId) -> &StoryGraph {
-        &self.stories[story_id.0]
     }
 }
 
 #[cfg(test)]
 mod unit_tests {
-    use crate::prelude::{Context, StoryGraph, StoryNode};
+    use crate::prelude::{NarrativeWorld, ScenarioAction, ScenarioGraph};
 
     use super::Raconteur;
 
@@ -61,17 +57,17 @@ mod unit_tests {
     fn a_story_can_be_excluded_from_the_query_result() {
         let mut raconteur = Raconteur::new();
         raconteur.insert({
-            let mut graph = StoryGraph::new();
-            let a = graph.add(StoryNode::new());
+            let mut graph = ScenarioGraph::new();
+            let a = graph.add(ScenarioAction::new());
             graph.set_start_node(a);
             graph
         });
 
-        let mut context = Context::new();
+        let mut context = NarrativeWorld::new();
 
         let stories = raconteur.query(&context);
         assert!(!stories.is_empty());
-        context.exclude(&[stories[0].id]);
+        // context.exclude(&[stories[0].id]);
         let stories = raconteur.query(&context);
         assert!(stories.is_empty());
     }

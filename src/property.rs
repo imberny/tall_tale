@@ -2,17 +2,29 @@ use std::{collections::HashMap, fmt::Display, ops::Range};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Float, Integer};
+use crate::{entity::EntityType, Int, Real};
 
 pub type PropertyName = String;
 // TODO: newtype
 pub type PropertyMap = HashMap<PropertyName, Property>;
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum PropertyType {
+    Nil,
+    Int,
+    Real,
+    String,
+    Enum(String), // inner string is a label to the user-defined set of values
+    IntRange(Int, Int),
+    RealRange(Real, Real),
+    Entity(EntityType), // only used by events to label participants
+}
+
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum Property {
     String(String),
-    Int(Integer),
-    Float(Float),
+    Int(Int),
+    Float(Real),
 }
 
 impl Property {
@@ -52,14 +64,14 @@ impl From<String> for Property {
     }
 }
 
-impl From<Integer> for Property {
-    fn from(val: Integer) -> Self {
+impl From<Int> for Property {
+    fn from(val: Int) -> Self {
         Property::Int(val)
     }
 }
 
-impl From<Float> for Property {
-    fn from(val: Float) -> Self {
+impl From<Real> for Property {
+    fn from(val: Real) -> Self {
         Property::Float(val)
     }
 }
