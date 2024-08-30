@@ -1,0 +1,96 @@
+[
+    Beat(
+        // the actors, whose aliases will get matched at runtime with entities that satisfy the constraints.
+        // How to differentiate these dynamic aliases with entities created for this beat? ie. the letter.
+        entities: {
+            "messenger": "character",
+            "noble woman": "character",
+            "letter": "object",
+        },
+        
+        new_entities: {
+            "letter": { // creates a new entity with the following properties
+                "name": "urgent letter",
+                "content": "Dear {PROTAG.gender.title} {PROTAG.family name},"
+            },
+        },
+
+        constraints: {
+            "TIME": [
+                IsOne("{time of day}", ["morning", "midday"]), 
+            ],
+            "PROTAG": [ // In this case, the above "PROTAG" alias in unneeded. The beat below should just refer to PROTAG
+                IsGreaterEq("{level}", 3),
+                Any("in", "city"), // PROTAG has a relationship "in" with any entity of type "city"
+            ],
+            "noble woman": [
+                // the "noble woman" is implicit, all constraints are related to the current alias
+                // Constraints on properties. Are {} required?
+                Eq("{wealth}", "rich"),
+                Eq("{gender}", "female"),
+            ],
+            ,
+        },
+
+        
+        // The graph of events
+        graph: {
+            // start node is always named "start"
+            "start": (
+                next: ["accept", "refuse"],
+                conditions: [],
+                events: [
+                    ( // event tuple contains the event's label followed by it concrete properties
+                        "says",
+                        {
+                            "who": "messenger",
+                            "speech": "Pardon, are you the one called {PROTAG.family name}? I bring an urgent message on the part of lady {noble woman.family name}.",
+                        }
+                    ),
+                ]
+            ),
+
+            "refuse": (
+                next: "end",
+                conditions: [],
+                events: [
+                    (
+                        "says",
+                        "PROTAG",
+                        "I'm not the one you're looking for. Good day."
+                    ),
+                    (
+                        "offense",
+                        "PROTAG",
+                        "noble woman",
+                        "petty",
+                    ),
+                ],
+            ),
+
+            "greet messenger::1": (
+                next: "details",
+                conditions: [],
+                events: [
+                    (
+                        "says",
+                        "PROTAG",
+                        "Sounds exciting! Well, out with it!"
+                    ),
+                ]
+            ),
+
+            "details::0": (
+                next: "give letter",
+                conditions: [],
+                events: (
+                    "gift",
+                    "TIME", // FIXME: make a copy of TIME, not a ref to the TIME entity
+                    "messenger",
+                    "PROTAG",
+                    "letter",
+                )
+            )
+        }
+    )
+]

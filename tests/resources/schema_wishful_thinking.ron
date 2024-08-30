@@ -1,94 +1,127 @@
 // A schema describes the words and concepts used in the narrative.
 Schema(
-  // User defined enums
-  // Is this necessary? It adds some redundancy. 
-  // Maybe define them in properties directly, at the cost of losing reusability.
-  enums: {
-    "size": ["tiny", "small", "average", "big", "huge"],
-    "relation":["enemy", "rival", "acquaintance", "friend", "devoted"],
-    "wealth": ["destitute", "poor", "average", "rich", "obscene"],
-    "quality": ["awful", "poor", "average", "good", "remarkable", "divine"],
-    "month": ["frosty", "springy", "sunny", "harvesty"],
-    "time of day": ["morning", "midday", "evening", "night"],
-  },
-
-  // User defined properties of entities
-  properties: {
-    "name": String,
-    "given name": String,
-    "family name": String,
-    "age": Int,
-    "size": Enum("size"),
-    "wealth": Enum("wealth"),
-    "population": Enum("size"),
-    "era": String,
-    "year": Int,
-    "month": Enum("month"),
-    "day": Int,
-    "hour": Int,
-    "minute": Int,
-    "time of day": Enum("time of day"),
-  },
-
-  // An entity is a type of thing important to the narrative. Each contain a set of named properties.
-  entities: {
-    "character": [
-      "given name",
-      "family name",
-      "age",
-      "size",
-    ],
-    "city": [
-      "name",
-      "population",
-    ],
-    "object": [
-      "name",
-    ],
-    "time": [ // let each user define their representation of time for now
-      "era",
-      "year",
-      "month",
-      "day",
-      "hour",
-      "minute",
-      "time of day",
-    ]
-  },
-
-  // The ways in which entities can relate to each other, and an optional relationship qualifier.
-  // Unidirectional.
-  relationships: {
-    "in": [
-      ("character", "city", Nil),
-      ("object", "object", Nil),
-    ],
-    "knows": [
-      ("character", "character", Enum("relation"))
-    ],
-    "possesses": [
-      ("character", "object"),
-    ],
-  },
-
-  // Something that has happened to one or multiple entities.
-  // Something the game can react to.
-  // How to model time? as an entity, or something prebuilt? a timestamp?
-  events: {
-    "sale" { // some props are entity labels, some are an Enum. Probably doable with custom deserializer.
-      "when": "time",
-      "seller": "character",
-      "buyer": "character",
-      "what": "object",
-      "bargain": Enum("quality"), // we don't care about actual value of things, only qualitative events for storytelling
+    // User defined enums
+    // Is this necessary? It adds some redundancy. 
+    // Maybe define them in properties directly, at the cost of losing reusability.
+    enums: {
+        "size": ["tiny", "small", "average", "big", "huge"],
+        "relation":["enemy", "rival", "acquaintance", "friend", "devoted"],
+        "wealth": ["destitute", "poor", "average", "rich", "obscene"],
+        "quality": ["awful", "poor", "average", "good", "remarkable", "divine"],
+        "month": ["frosty", "springy", "sunny", "harvesty"],
+        "time of day": ["morning", "midday", "evening", "night"],
     },
 
-    "gift" { // should a sale be modeled as two gifts?
-      "when": "time",
-      "from": "character",
-      "to": "character",
-      "what": "object",
+    // User defined properties of entities
+    properties: {
+        "speech": String, // maybe use a different type to denote that this is likely templated
+
+        "name": String,
+        "given name": String,
+        "family name": String,
+        "age": Int,
+
+        "size": Enum("size"),
+        "wealth": Enum("wealth"),
+        "population": Enum("size"),
+
+        "era": String,
+        "year": Int,
+        "month": Enum("month"),
+        "day": Int,
+        "hour": Int,
+        "minute": Int,
+        "time of day": Enum("time of day"), 
+
+        "who": "character",
+        "other": "character",
+        "impression": ["disastrous", "poor", "neutral", "favorable", "divine"],
+        "severity": ["petty", "serious", "unforgivable"],
+        "deal quality": Enum("quality"), // we don't care about actual value of things, only qualitative events for storytelling
+    },
+
+    // An entity is a type of thing important to the narrative. Each contain a set of named properties.
+    // The properties below are mandatory, but any entity can have additional optional properties.
+    entity_types: {
+        "character": [
+            "given name",
+            "family name",
+            "age",
+            "size",
+        ],
+        "city": [
+            "name",
+            "population",
+        ],
+        "object": [
+            "name",
+        ],
+        "time": [ // let each user define their representation of time for now
+            "era",
+            "year",
+            "month",
+            "day",
+            "hour",
+            "minute",
+            "time of day",
+        ]
+    },
+
+    // The ways in which entities can relate to each other, and an optional relationship qualifier.
+    // Unidirectional.
+    relationships: {
+        "in": [
+            ("character", "city", Nil),
+            ("object", "object", Nil),
+        ],
+        "knows": [
+            ("character", "character", Enum("relation"))
+        ],
+        "possesses": [
+            ("character", "object"),
+        ],
+    },
+
+    // Something that has happened to one or multiple entities.
+    // Something the game can react to.
+    // How to model time? as an entity, or something prebuilt? a timestamp?
+    // Does time need to be modeled? Think in terms of storytelling: we don't need
+    // precise time measurements, we can rely on simple label properties (ex: it is early day, summer, some time after..).
+    // If today is a special day, the game can inject an "anniversary of somthing" property into
+    // the global TIME or DAY entity.
+    // This means events are simply thrown back to the user (though we keep a history).
+    // Maybe there could be a global int set by user for the sole purpose of tracking time?
+    // It would have no meaning for us, but could let users track events in time.
+    // TODO: other way to model events?
+    events: {
+        "says": [
+            "who",
+            "speech",
+        ],
+        "encounter": [
+            "time",
+            "who",
+            "other",
+            "impression",
+        ],
+        "offense": [
+            "who",
+            "other",
+            "severity"
+        ],
+        "sale" [ // some props are entity labels, some are an Enum. Probably doable with custom deserializer.
+            "time",
+            "who", // the salesman. use other labels?
+            "other", // the buyer
+            "what",
+            "deal quality",
+        ],
+
+    },
+
+    // can specify some global entities. They can be static characters. Need to set their props in the narration.
+    global_entities: {
+        "TIME": "time",
+        "PROTAG": "character", // the main character aka the player
     }
-    
-  },
 )
