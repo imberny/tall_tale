@@ -10,6 +10,7 @@ Schema(
         "quality": ["awful", "poor", "average", "good", "remarkable", "divine"],
         "month": ["frosty", "springy", "sunny", "harvesty"],
         "time of day": ["morning", "midday", "evening", "night"],
+        "object type": ["clothing", "letter"],
     },
 
     // User defined properties of entities
@@ -20,6 +21,7 @@ Schema(
         "given name": String,
         "family name": String,
         "age": Int,
+        "description": String,
 
         "size": Enum("size"),
         "wealth": Enum("wealth"),
@@ -37,15 +39,31 @@ Schema(
         "other": "character",
         "impression": ["disastrous", "poor", "neutral", "favorable", "divine"],
         "severity": ["petty", "serious", "unforgivable"],
+        "quality": Enum("quality"), // Is this redundancy necessary? If no props match the label, go check the enums.
         "deal quality": Enum("quality"), // we don't care about actual value of things, only qualitative events for storytelling
+
+        // How to do nested properties?
+        "gender": [ // when array, means it's a list of other properties
+            "name",
+            "gendered title",
+            "gendered title short",
+        ],
+        "gendered title": String,
+        "gendered title short": String,
+
+        // How to handle syntax? articles? possessive?
+        "article": String,
+
     },
 
     // An entity is a type of thing important to the narrative. Each contain a set of named properties.
     // The properties below are mandatory, but any entity can have additional optional properties.
     entity_types: {
         "character": [
+            "description",
             "given name",
             "family name",
+            "gender",
             "age",
             "size",
         ],
@@ -55,8 +73,23 @@ Schema(
         ],
         "object": [
             "name",
+            "object type",
+            "quality",
+            "description",
         ],
-        "time": [ // let each user define their representation of time for now
+        "building": [
+            "name",
+            "size",
+            "wealth",
+            "description",
+        ],
+        "business": [
+            "product",
+            "wealth",
+        ],
+
+        // In most use cases, there would probably be only be a Singleton entity of this type.
+        "time": [ // let each user define their representation of time
             "era",
             "year",
             "month",
@@ -71,46 +104,70 @@ Schema(
     // Unidirectional.
     relationships: {
         "in": [
-            ("character", "city", Nil),
-            ("object", "object", Nil),
+            ("character", "city"),
+            ("object", "object"),
+            ("building", "city"),
+            ("business", "building"),
         ],
         "knows": [
-            ("character", "character", Enum("relation"))
+            ("character", "character", "relation")
         ],
-        "possesses": [
+        "owns": [
             ("character", "object"),
+            ("character", "business"),
+        ],
+        "carries": [
+            ("character", "object"),
+            ("character", "character"),
         ],
     },
 
-    // Something that has happened to one or multiple entities.
-    // Something the game can react to.
-    // How to model time? as an entity, or something prebuilt? a timestamp?
-    // Does time need to be modeled? Think in terms of storytelling: we don't need
-    // precise time measurements, we can rely on simple label properties (ex: it is early day, summer, some time after..).
-    // If today is a special day, the game can inject an "anniversary of somthing" property into
-    // the global TIME or DAY entity.
-    // This means events are simply thrown back to the user (though we keep a history).
-    // Maybe there could be a global int set by user for the sole purpose of tracking time?
-    // It would have no meaning for us, but could let users track events in time.
-    // TODO: other way to model events?
-    events: {
-        "says": [
+    // User defined instructions. The writer's mean to express modifications to the narration.
+    // Instructions must then be interpreted by the caller. In its simplest form, each instruction type
+    // may get mapped to a different function call.
+    // In effect a sort of simple scripting language available to the writers.
+    instructions: {
+        "say": [
             "who",
             "speech",
         ],
+        "say to": [
+            "who",
+            "other",
+            "speech",
+        ],
+
+        // This probably should be handled gameside. Otherwise, writers would have to add this
+        // "encounter" instruction every time entites interact.
+        // A better way would be for the game to manage this via instructions involving multiple
+        // entities, and writers need only add story relevant instructions like "offend", "flatter", etc.
         "encounter": [
             "time",
             "who",
             "other",
             "impression",
         ],
-        "offense": [
+
+        "offend": [
             "who",
             "other",
             "severity"
         ],
+        "give": [
+            "who",
+            "other",
+            "object",
+        ],
+
+        // This is an interesting case. Can writers handle game systems like trading? Or should that be done
+        // gameside and then relayed via entities and relationships in the narration?
+        // I feel like they should focus on the fewest things necessary, meaning keep storytelling as separate
+        // from the game systems as possible. Writers focus on things of narrative import.
+        // What is interesting about a sale storywise? The relationship between seller and buyer, the quality
+        // of the item or the deal, the legal aspect, etc. Therefore an event such as a sale gameside affects
+        // the narration in those terms. Giving an explicit "sale" instruction might be the wrong way to go.
+        // An alternative would be an instruction such as "allow sale" or its opposite.
         "sale" [ // some props are entity labels, some are an Enum. Probably doable with custom deserializer.
-            "time",
             "who", // the salesman. use other labels?
             "other", // the buyer
             "what",
@@ -123,5 +180,7 @@ Schema(
     global_entities: {
         "TIME": "time",
         "PROTAG": "character", // the main character aka the player
+        "MALE": "gender",
+        "FEMALE": "gender",
     }
 )

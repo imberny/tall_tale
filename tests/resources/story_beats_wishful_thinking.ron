@@ -8,59 +8,68 @@
             "letter": "object",
         },
         
+        // Indicates that the following aliases must not match an existing entity, but rather
+        // bind to a new entity constructed for this beat.
         new_entities: {
             "letter": { // creates a new entity with the following properties
                 "name": "urgent letter",
+                "object type": "letter",
                 "content": "Dear {PROTAG.gender.title} {PROTAG.family name},"
             },
         },
 
+        // Constraints on aliases which must be satisfied for this beat to play
         constraints: {
             "TIME": [
                 IsOne("{time of day}", ["morning", "midday"]), 
             ],
-            "PROTAG": [ // In this case, the above "PROTAG" alias in unneeded. The beat below should just refer to PROTAG
+            "PROTAG": [
                 IsGreaterEq("{level}", 3),
-                Any("in", "city"), // PROTAG has a relationship "in" with any entity of type "city"
+                Any("in", "city"),  // PROTAG has a relationship "in" with any entity of type "city"
+                                    // Meaning we are currently in a city. Could also be handled by
+                                    // a global "LOCATION" entity.
             ],
             "noble woman": [
                 // the "noble woman" is implicit, all constraints are related to the current alias
                 // Constraints on properties. Are {} required?
                 Eq("{wealth}", "rich"),
                 Eq("{gender}", "female"),
+                Eq("knows", "PROTAG", "acquaintance"),
             ],
-            ,
+            "messenger": [
+                Eq("carries", "letter"), // A better word than Eq for relationships?
+            ],
         },
 
         
-        // The graph of events
-        graph: {
+        // The graph of instructions
+        scenario: {
             // start node is always named "start"
             "start": (
                 next: ["accept", "refuse"],
-                conditions: [],
-                events: [
+                constraints: [],
+                instructions: [
                     ( // event tuple contains the event's label followed by it concrete properties
-                        "says",
+                        "say",
                         {
                             "who": "messenger",
-                            "speech": "Pardon, are you the one called {PROTAG.family name}? I bring an urgent message on the part of lady {noble woman.family name}.",
+                            "speech": "Pardon, are you the one called {PROTAG.gender.gendered title short} {PROTAG.family name}? I bring an urgent message on the part of lady {noble woman.family name}.",
                         }
                     ),
                 ]
             ),
 
             "refuse": (
-                next: "end",
-                conditions: [],
-                events: [
+                next: ["end"],
+                constraints: [],
+                instructions: [
                     (
-                        "says",
+                        "say",
                         "PROTAG",
-                        "I'm not the one you're looking for. Good day."
+                        "I do not wish to involve myself with lady {noble woman.family name}. Good day."
                     ),
                     (
-                        "offense",
+                        "offend",
                         "PROTAG",
                         "noble woman",
                         "petty",
@@ -68,28 +77,29 @@
                 ],
             ),
 
-            "greet messenger::1": (
-                next: "details",
-                conditions: [],
-                events: [
+            "accept": (
+                next: ["details"],
+                constraints: [],
+                instructions: [
                     (
-                        "says",
+                        "say",
                         "PROTAG",
                         "Sounds exciting! Well, out with it!"
                     ),
                 ]
             ),
 
-            "details::0": (
-                next: "give letter",
-                conditions: [],
-                events: (
-                    "gift",
-                    "TIME", // FIXME: make a copy of TIME, not a ref to the TIME entity
-                    "messenger",
-                    "PROTAG",
-                    "letter",
-                )
+            "details": (
+                next: ["end"],
+                constraints: [],
+                instructions: [
+                    (
+                        "give",
+                        "messenger",
+                        "PROTAG",
+                        "letter",
+                    )
+                ]
             )
         }
     )
