@@ -1,3 +1,5 @@
+# Raconteur
+
 Raconteur is a tool which allows writing short story modules, called "beats", without knowing the specifics ahead of time such as characters, locales, relationships, etc. Writers express constraints that must be satisfied for the story beat to function, and the "gaps" in those beats are filled at runtime by the characters/places/objects which satisfy the constraints.
 
 ## Structure
