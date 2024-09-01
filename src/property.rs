@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{entity::EntityType, Int, Real};
 
 pub type PropertyName = String;
+pub type PropertyDefMap = HashMap<PropertyName, PropertyType>;
 // TODO: newtype
 pub type PropertyMap = HashMap<PropertyName, Property>;
 
@@ -15,9 +16,10 @@ pub enum PropertyType {
     Real,
     String,
     Enum(String), // inner string is a label to the user-defined set of values
-    IntRange(Int, Int),
-    RealRange(Real, Real),
-    Entity(EntityType), // only used by events to label participants
+    // IntRange(Int, Int),
+    // RealRange(Real, Real), // Let's not focus too much on number props for now
+    Entity(EntityType), // useful for relationships and instructions
+    Properties(Vec<PropertyName>),
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]

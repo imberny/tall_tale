@@ -1,8 +1,10 @@
 mod constraint;
 mod entity;
+mod instruction;
 mod narrative_world;
 mod property;
 mod raconteur;
+mod relationship;
 mod scenario;
 mod scenario_action;
 mod scenario_graph;

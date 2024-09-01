@@ -1,48 +1,43 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entity::EntityType,
-    property::{PropertyName, PropertyType},
+    entity::{EntityAlias, EntityDefMap, EntityDefName},
+    instruction::InstructionDefMap,
+    property::PropertyDefMap,
+    relationship::RelationshipDefMap,
 };
 
 type EnumName = String;
 
-#[derive(Default, Serialize, Deserialize)]
-struct EnumDef(Vec<String>);
+type EnumDef = Vec<String>;
 
 type EnumDefMap = HashMap<EnumName, EnumDef>;
 
-type PropertyDefMap = HashMap<PropertyName, PropertyType>;
-
-type EntityDefName = String;
-type EntityDefMap = HashMap<EntityDefName, Vec<PropertyName>>;
-
-type RelationshipDefName = String;
-type RelationshipDef = (EntityDefName, EntityDefName, PropertyType);
-type RelationshipDefMap = HashMap<RelationshipDefName, RelationshipDef>;
-
-type EventDefName = String;
-type EventDef = PropertyType;
-type EventDefMap = HashMap<EventDefName, EventDef>;
+type FlagSet = HashSet<String>;
 
 #[derive(Default, Serialize, Deserialize)]
 struct Schema {
     enums: EnumDefMap,
     properties: PropertyDefMap,
-    entities: EntityDefMap,
+    entity_types: EntityDefMap,
+    flags: FlagSet,
     relationships: RelationshipDefMap,
-    events: EventDefMap,
+    instructions: InstructionDefMap,
+    global_entities: HashMap<EntityAlias, EntityDefName>,
 }
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use super::Schema;
 
     #[test]
     fn validate_schema() {
-        let mut schema = Schema::default();
-        assert!(false, "hello");
+        let schema_content =
+            fs::read_to_string("tests/resources/schema_wishful_thinking.ron").expect("");
+        let _: Schema = ron::from_str(&schema_content).expect("");
     }
 }

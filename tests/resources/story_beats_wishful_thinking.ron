@@ -10,6 +10,9 @@
         
         // Indicates that the following aliases must not match an existing entity, but rather
         // bind to a new entity constructed for this beat.
+        // TODO: these requirements must be handled gameside for the following instructions to work.
+        // In this case, the game must create a new letter entity and give it to the messenger.
+        // This would mean the game must be able to interpret relationships.
         new_entities: {
             "letter": { // creates a new entity with the following properties
                 "name": "urgent letter",
@@ -18,31 +21,27 @@
             },
         },
 
-        // Constraints on aliases which must be satisfied for this beat to play
-        constraints: {
-            "TIME": [
-                IsOne("{time of day}", ["morning", "midday"]), 
-            ],
-            "PROTAG": [
-                IsGreaterEq("{level}", 3),
-                Any("in", "city"),  // PROTAG has a relationship "in" with any entity of type "city"
-                                    // Meaning we are currently in a city. Could also be handled by
-                                    // a global "LOCATION" entity.
-            ],
-            "noble woman": [
-                // the "noble woman" is implicit, all constraints are related to the current alias
-                // Constraints on properties. Are {} required?
-                Eq("{wealth}", "rich"),
-                Eq("{gender}", "female"),
-                Eq("knows", "PROTAG", "acquaintance"),
-            ],
-            "messenger": [
-                Eq("carries", "letter"), // A better word than Eq for relationships?
-            ],
-        },
+        new_relationships: [
+            ("messenger", "carries", "letter"),
+        ],
 
+        // Constraints on aliases which must be satisfied for this beat to play
+        constraints: [
+            OneOf("{TIME.time of day}", ["morning", "midday"]),
+            RelSame("{noble woman}", "{PROTAG}", "in", "city"), // both are in the same city
+            // RelAny("{PROTAG}", "in", "city"), // protag is in any city // redundant?
+            HasFlag("{PROTAG}", "local renown"),
+            Eq("{noble woman.wealth}", "rich"),
+            Eq("{noble woman.gender}", "{FEMALE}"), // prop gender matches global entity FEMALE
+            
+            // Rel("{PROTAG}", "near", "{messenger}"), // necessary? messenger will seek out player.
+            Rel("{messenger}", "works for", "{noble woman}"),
+        ],
         
         // The graph of instructions
+        // TODO: investigate using an inkle like structure instead of a graph.
+        // The issue with an inkle-like format is storing it as a huge string, which hurts the readability of this file.
+        // Instead, the below graph could be presented in inkle format to the user for editing.
         scenario: {
             // start node is always named "start"
             "start": (
@@ -53,10 +52,19 @@
                         "say",
                         {
                             "who": "messenger",
-                            "speech": "Pardon, are you the one called {PROTAG.gender.gendered title short} {PROTAG.family name}? I bring an urgent message on the part of lady {noble woman.family name}.",
+                            "speech": "[bring message]",
                         }
                     ),
-                ]
+                ],
+                lines: {
+                    "bring message": [
+                        (
+                            [ // constraints on this line variant
+                            ],
+                            "Pardon, are you the one called {PROTAG.gender.gendered title short} {PROTAG.family name}? I bring an urgent message on the part of lady {noble woman.family name}."
+                        ),
+                    ],
+                },
             ),
 
             "refuse": (

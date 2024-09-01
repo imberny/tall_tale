@@ -48,7 +48,11 @@ A story relevant "thing", like a character, an object, a place, a concept...
 
 ### Property
 
-A labeled value. Can contain sub-properties.
+A labeled value. Can contain sub-properties. (Rename to traits?)
+
+### Flag
+
+A plain label which can be optionally applied to any entity.
 
 ### Relationship
 
@@ -77,3 +81,18 @@ A graph of scenario nodes.
 ### Scenario node
 
 A node in the scenario graph. Contains the names of the following nodes, a list of additional constraints and a list of instructions.
+
+
+## Similar tools
+
+### [Lume](https://dl.acm.org/doi/pdf/10.1145/3337722.3337759)
+
+Conceptually the closest to raconteur. However, it uses a Prolog based constraint solver to assemble what it calls storylets or story fragments. Raconteur largelly leaves it to the user to assemble story beats.
+
+I haven't found a working implementation online, or proof that it had been implemented in a commercial project.
+
+### [StoryAssembler](https://dl.acm.org/doi/pdf/10.1145/3337722.3337732)
+
+An interactive fiction engine which breaks down stories into parts and dynamically assembles them, filling in the blanks with appropriate characters and objects. Features conditional templates with fallbacks that are inserted in the text at runtime in order to customize text or add variance.
+
+

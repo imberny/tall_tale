@@ -1,3 +1,4 @@
+// FIXME: This class is obsolete and is only kept right now as a reference during the rework.
 use std::collections::{HashMap, HashSet};
 
 use crate::{

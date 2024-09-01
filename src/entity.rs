@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::property::{Property, PropertyMap, PropertyName};
 
 // #[derive(Hash, PartialEq, Eq, Clone, Copy)]
@@ -9,6 +11,9 @@ pub type EntityId = usize;
 //     }
 // }
 pub type EntityType = String; // A label to distinguish types
+pub type EntityAlias = String;
+pub type EntityDefName = String;
+pub type EntityDefMap = HashMap<EntityDefName, Vec<PropertyName>>;
 
 pub struct Entity {
     id: EntityId, // user provided id to let them map story entities to game objects

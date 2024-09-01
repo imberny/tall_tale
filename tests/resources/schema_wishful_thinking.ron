@@ -8,6 +8,7 @@ Schema(
         "relation":["enemy", "rival", "acquaintance", "friend", "devoted"],
         "wealth": ["destitute", "poor", "average", "rich", "obscene"],
         "quality": ["awful", "poor", "average", "good", "remarkable", "divine"],
+        "severity": ["petty", "serious", "unforgivable"],
         "month": ["frosty", "springy", "sunny", "harvesty"],
         "time of day": ["morning", "midday", "evening", "night"],
         "object type": ["clothing", "letter"],
@@ -15,7 +16,7 @@ Schema(
 
     // User defined properties of entities
     properties: {
-        "speech": String, // maybe use a different type to denote that this is likely templated
+        "speech": String, // maybe use a different type to denote that this is likely templated? But all strings ought to be templateable anyway.
 
         "name": String,
         "given name": String,
@@ -35,19 +36,19 @@ Schema(
         "minute": Int,
         "time of day": Enum("time of day"), 
 
-        "who": "character",
-        "other": "character",
-        "impression": ["disastrous", "poor", "neutral", "favorable", "divine"],
-        "severity": ["petty", "serious", "unforgivable"],
+        "who": Entity("character"),
+        "other": Entity("character"),
+        "impression": Enum("quality"),
+        "severity": Enum("severity"),
         "quality": Enum("quality"), // Is this redundancy necessary? If no props match the label, go check the enums.
         "deal quality": Enum("quality"), // we don't care about actual value of things, only qualitative events for storytelling
 
         // How to do nested properties?
-        "gender": [ // when array, means it's a list of other properties
+        "gender": Properties([ // when array, means it's a list of other properties
             "name",
             "gendered title",
             "gendered title short",
-        ],
+        ]),
         "gendered title": String,
         "gendered title short": String,
 
@@ -100,25 +101,42 @@ Schema(
         ]
     },
 
+    // Can be optionally added to any entity.
+    flags: [
+        "jolly",
+        "pretty",
+        "ugly",
+        "clever",
+        "local renown", // ex: when entering an area where player gained fame, he receives this flag
+        "unconscious",
+        "sleeping",
+    ],
+
     // The ways in which entities can relate to each other, and an optional relationship qualifier.
     // Unidirectional.
     relationships: {
         "in": [
-            ("character", "city"),
-            ("object", "object"),
-            ("building", "city"),
-            ("business", "building"),
+            ("character", "city", None),
+            ("object", "object", None),
+            ("building", "city", None),
+            ("business", "building", None),
         ],
         "knows": [
-            ("character", "character", "relation")
+            // should the qualifier instead be multiple relationships? "is aquainted" "is rival" "is friend"
+            // But then in our case only one at a time makes sense, which makes the qualifier useful while not
+            // preventing the other approach.
+            ("character", "character", Some("relation")),
+        ],
+        "works for": [
+            ("character", "character", None),
         ],
         "owns": [
-            ("character", "object"),
-            ("character", "business"),
+            ("character", "object", None),
+            ("character", "business", None),
         ],
         "carries": [
-            ("character", "object"),
-            ("character", "character"),
+            ("character", "object", None),
+            ("character", "character", None),
         ],
     },
 
@@ -167,7 +185,7 @@ Schema(
         // of the item or the deal, the legal aspect, etc. Therefore an event such as a sale gameside affects
         // the narration in those terms. Giving an explicit "sale" instruction might be the wrong way to go.
         // An alternative would be an instruction such as "allow sale" or its opposite.
-        "sale" [ // some props are entity labels, some are an Enum. Probably doable with custom deserializer.
+        "sale" :[ // some props are entity labels, some are an Enum. Probably doable with custom deserializer.
             "who", // the salesman. use other labels?
             "other", // the buyer
             "what",
